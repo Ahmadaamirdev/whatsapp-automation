@@ -531,6 +531,27 @@ async function loadChats(forceRerender = false) {
     // If active phone is selected, reload that conversation
     if (activePhone) {
       loadActiveChat(activePhone, forceRerender);
+    } else if (chatsList.length > 0) {
+      activePhone = chatsList[0].phone;
+      loadActiveChat(activePhone, true);
+    } else {
+      const msgArea = document.getElementById('waMessagesArea');
+      if (msgArea) {
+        msgArea.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #64748b; text-align: center; padding: 24px;">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; color: #059669;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            </div>
+            <h4 style="font-size: 16px; font-weight: 600; color: #1e293b; margin-bottom: 6px;">No conversations yet</h4>
+            <p style="font-size: 13px; max-width: 320px; line-height: 1.5; color: #64748b; margin-bottom: 16px;">
+              When an employee sends a WhatsApp message or you start a new conversation, it will appear here in real time.
+            </p>
+            <button type="button" class="btn btn-primary" onclick="const b=document.getElementById('btnNewChatPrompt'); if(b) b.click();" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 16px;">
+              + Start New Chat
+            </button>
+          </div>
+        `;
+      }
     }
   } catch (err) {
     console.error('Error loading chats:', err);

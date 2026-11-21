@@ -92,8 +92,7 @@ def load_json(filename: str, default: Any = None):
                     if phone:
                         doc_clean = {k: v for k, v in d.items() if k != "_id"}
                         res[phone] = doc_clean
-                if res:
-                    return res
+                return res
             elif filename == AUDIT_FILE:
                 docs = list(db["template_audit"].find({}))
                 res = {}
@@ -716,10 +715,12 @@ async def receive_webhook(request: Request):
                     else:
                         text_body = f"[{msg.get('type')} message]"
 
-                    # Lookup or create employee profile
+                    # Lookup or create employee profile safely
                     emp = emp_lookup.get(clean_sender)
-                    emp_name = emp.get("name") if emp else value.get("contacts", [{}])[0].get("profile", {}).get("name", "Employee")
-                    emp_dept = emp.get("department", "General") if emp else "Staff"
+                    contacts = value.get("contacts") or []
+                    contact_profile = contacts[0].get("profile", {}) if len(contacts) > 0 else {}
+                    emp_name = emp.get("name") if emp else contact_profile.get("name", sender_phone)
+                    emp_dept = emp.get("department", "WhatsApp Contact") if emp else "WhatsApp Contact"
 
                     if sender_phone not in messages_db:
                         messages_db[sender_phone] = {
