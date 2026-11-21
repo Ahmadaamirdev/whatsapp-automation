@@ -20,6 +20,10 @@ META_APP_ID = os.getenv("META_APP_ID", "2049923772374313")
 META_APP_SECRET = os.getenv("META_APP_SECRET", "18d803ccb0bcffc61a250dde640ecbb2")
 WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "1451021148100534")
 WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv("WHATSAPP_BUSINESS_ACCOUNT_ID", "1153445740531196")
+
+# Auto-correct if environment variable was set to WABA ID instead of Phone Number ID
+if WHATSAPP_PHONE_NUMBER_ID == "1153445740531196" or not WHATSAPP_PHONE_NUMBER_ID:
+    WHATSAPP_PHONE_NUMBER_ID = "1451021148100534"
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "EAAdIZARJE3SkBTLuCaPuXnte5eTjR3JynrWZADluzTlJJ4ZAkdTmmZAYLM5m379nN94c6GDxOZCp7DmMLBfSn0UoI4rnadTVz2QnZCJBuxXYAJHZA8jGChjwfIXulMEIrmWBNhDvdNWjgRZBXqrpbprmArVKHkoFwuVA06glC06bbRtpPIJDbnxPcY8xSRkH2wZDZD")
 WEBHOOK_VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "alhaditha_wa_webhook_verify_2026")
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://m4musa592_db_user:qgQ9616OC2mI5Mn0@cluster0.thsts0e.mongodb.net/alhaditha_wa?retryWrites=true&w=majority")
@@ -660,21 +664,31 @@ def send_chat_message(phone: str, req: SendChatMessageRequest):
         }
         
     chat = messages_db[phone]
-    msg_id = f"m_{int(time.time()*1000)}"
+    
+    # Extract Meta message ID or fallback
+    meta_messages = api_response.get("messages", []) if isinstance(api_response, dict) else []
+    meta_msg_id = meta_messages[0].get("id") if meta_messages else f"m_{int(time.time()*1000)}"
+    has_error = bool(api_response and isinstance(api_response, dict) and "error" in api_response)
+    initial_status = "failed" if has_error else "sent"
+    error_msg = api_response.get("error", {}).get("message") if has_error else None
+
     new_msg = {
-        "id": msg_id,
+        "id": meta_msg_id,
         "direction": "outgoing",
         "sender": "Al Haditha Energy",
         "text": req.text,
         "time": now_time,
         "timestamp": datetime.utcnow().isoformat() + "Z",
-        "status": "delivered"
+        "status": initial_status
     }
+    if error_msg:
+        new_msg["error"] = error_msg
+
     chat["messages"].append(new_msg)
     chat["last_activity"] = now_time
     save_json("messages.json", messages_db)
     
-    return {"success": True, "message": new_msg, "meta_response": api_response}
+    return {"success": not has_error, "message": new_msg, "meta_response": api_response}
 
 
 # --- 7. META WEBHOOK (Verification & Receiver) ---
