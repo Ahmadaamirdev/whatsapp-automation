@@ -1,12 +1,15 @@
 import os
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 import requests
 from pymongo import MongoClient
+
+# Pakistan Standard Time (PKT, UTC+5)
+PKT_TZ = timezone(timedelta(hours=5))
 from fastapi import FastAPI, Request, Response, Query, HTTPException, status
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -505,7 +508,7 @@ def send_broadcast(req: BroadcastSendRequest):
         recipients = employees
 
     recipient_count = len(recipients)
-    now_str = datetime.now().strftime("%b %d, %Y • %I:%M %p")
+    now_str = datetime.now(PKT_TZ).strftime("%b %d, %Y • %I:%M %p")
     
     # If a test phone number is provided or target is small, trigger real Meta WhatsApp API call
     real_dispatch_result = None
@@ -629,7 +632,7 @@ class SendChatMessageRequest(BaseModel):
 def send_chat_message(phone: str, req: SendChatMessageRequest):
     """Sends a 1-on-1 direct message via WhatsApp Cloud API."""
     messages_db = load_json("messages.json", {})
-    now_time = datetime.now().strftime("%I:%M %p")
+    now_time = datetime.now(PKT_TZ).strftime("%I:%M %p")
     
     clean_phone = phone.replace("+", "").replace(" ", "").replace("-", "")
     api_response = None
@@ -772,7 +775,7 @@ async def receive_webhook(request: Request):
                         "phone": sender_phone
                     }
 
-                now_time = datetime.now().strftime("%I:%M %p")
+                now_time = datetime.now(PKT_TZ).strftime("%I:%M %p")
                 messages_db[sender_phone]["name"] = emp_name
                 messages_db[sender_phone]["messages"].append({
                     "id": msg.get("id", str(time.time())),

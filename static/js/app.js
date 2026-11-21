@@ -572,6 +572,19 @@ async function loadChats(forceRerender = false) {
   }
 }
 
+// --- Helper: Format Time in Local / Pakistan Timezone ---
+function formatLocalTime(timeStr, isoTimestamp) {
+  if (isoTimestamp) {
+    try {
+      const d = new Date(isoTimestamp);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+      }
+    } catch (e) {}
+  }
+  return timeStr || '';
+}
+
 function renderConversationsList(chats) {
   const container = document.getElementById('waConversationsList');
   if (!container) return;
@@ -610,7 +623,7 @@ function renderConversationsList(chats) {
       <div class="wa-chat-row-info">
         <div class="wa-row-header">
           <span class="wa-row-name">${chat.name || chat.phone}</span>
-          <span class="wa-row-time">${chat.last_activity || ''}</span>
+          <span class="wa-row-time">${formatLocalTime(chat.last_activity, chat.last_timestamp)}</span>
         </div>
         <div class="wa-row-sub">
           <span class="wa-row-msg">${chat.last_message || chat.role || 'WhatsApp conversation'}</span>
@@ -668,7 +681,7 @@ async function loadActiveChat(phone, scrollBottom = false) {
           bubble.innerHTML = `
             <div>${m.text.replace(/\n/g, '<br>')}</div>
             <div class="wa-msg-meta">
-              <span>${m.time || ''}</span>
+              <span>${formatLocalTime(m.time, m.timestamp)}</span>
               ${isOut ? '<span class="wa-ticks">✓✓</span>' : ''}
             </div>
           `;
