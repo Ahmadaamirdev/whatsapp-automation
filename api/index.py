@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 import requests
+from pymongo import MongoClient
 from fastapi import FastAPI, Request, Response, Query, HTTPException, status
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +22,8 @@ WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "14510211481005
 WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv("WHATSAPP_BUSINESS_ACCOUNT_ID", "1153445740531196")
 WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
 WEBHOOK_VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "alhaditha_wa_webhook_verify_2026")
+MONGODB_URI = os.getenv("MONGODB_URI", "")
+AUDIT_FILE = "template_audit.json"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 possible_data_dirs = [
@@ -33,6 +36,17 @@ SEED_DATA_DIR = next((p for p in possible_data_dirs if p.exists()), BASE_DIR / "
 # Serverless environment (Vercel) detection
 IS_VERCEL = bool(os.getenv("VERCEL"))
 DATA_DIR = Path("/tmp/data") if IS_VERCEL else SEED_DATA_DIR
+
+# MongoDB Atlas Integration
+db = None
+if MONGODB_URI:
+    try:
+        mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+        db = mongo_client["alhaditha_wa"]
+        print("[MONGODB] Connected to MongoDB Atlas (database: alhaditha_wa)")
+    except Exception as e:
+        print(f"[MONGODB ERROR] Connection failed: {e}")
+        db = None
 
 app = FastAPI(
     title="Al-Haditha WhatsApp Announcement System",
@@ -57,9 +71,43 @@ async def vercel_path_rewrite_middleware(request: Request, call_next):
             request.scope["path"] = matched.split("?")[0]
     return await call_next(request)
 
-# Helper functions for data storage (safe for both local development and Vercel serverless /tmp fallback)
+# Helper functions for data storage (persists to MongoDB Atlas with seamless local JSON /tmp fallback)
 def load_json(filename: str, default: Any = None):
-    # Check writable DATA_DIR first
+    # 1. Check MongoDB first if connected
+    if db is not None:
+        try:
+            if filename == "employees.json":
+                docs = list(db["employees"].find({}, {"_id": 0}))
+                if docs:
+                    return docs
+            elif filename == "broadcasts.json":
+                docs = list(db["broadcasts"].find({}, {"_id": 0}).sort("timestamp", -1))
+                if docs:
+                    return docs
+            elif filename == "messages.json":
+                docs = list(db["chats"].find({}))
+                res = {}
+                for d in docs:
+                    phone = d.get("phone") or d.get("_id")
+                    if phone:
+                        doc_clean = {k: v for k, v in d.items() if k != "_id"}
+                        res[phone] = doc_clean
+                if res:
+                    return res
+            elif filename == AUDIT_FILE:
+                docs = list(db["template_audit"].find({}))
+                res = {}
+                for d in docs:
+                    name = d.get("_id") or d.get("name")
+                    if name:
+                        doc_clean = {k: v for k, v in d.items() if k != "_id"}
+                        res[name] = doc_clean
+                if res:
+                    return res
+        except Exception as e:
+            print(f"[MONGODB READ ERROR] {filename}: {e}")
+
+    # 2. Local fallback
     filepath = DATA_DIR / filename
     if not filepath.exists() and SEED_DATA_DIR.exists():
         seed_path = SEED_DATA_DIR / filename
@@ -75,13 +123,38 @@ def load_json(filename: str, default: Any = None):
         return default if default is not None else []
 
 def save_json(filename: str, data: Any):
+    # 1. Persist to MongoDB Atlas if connected
+    if db is not None:
+        try:
+            if filename == "broadcasts.json":
+                if isinstance(data, list):
+                    for item in data:
+                        b_id = item.get("id") or item.get("timestamp")
+                        db["broadcasts"].replace_one({"id": b_id}, item, upsert=True)
+            elif filename == "messages.json":
+                if isinstance(data, dict):
+                    for phone, thread in data.items():
+                        doc = dict(thread)
+                        doc["_id"] = phone
+                        doc["phone"] = phone
+                        db["chats"].replace_one({"_id": phone}, doc, upsert=True)
+            elif filename == AUDIT_FILE:
+                if isinstance(data, dict):
+                    for name, entry in data.items():
+                        doc = dict(entry)
+                        doc["_id"] = name
+                        doc["name"] = name
+                        db["template_audit"].replace_one({"_id": name}, doc, upsert=True)
+        except Exception as e:
+            print(f"[MONGODB WRITE ERROR] {filename}: {e}")
+
+    # 2. Local fallback persistence
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         filepath = DATA_DIR / filename
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
     except OSError:
-        # Fallback to /tmp if filesystem is read-only (e.g. Vercel serverless)
         tmp_dir = Path("/tmp/data")
         tmp_dir.mkdir(parents=True, exist_ok=True)
         filepath = tmp_dir / filename
