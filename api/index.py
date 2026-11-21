@@ -199,35 +199,26 @@ def get_system_status():
 @app.get("/api/metrics")
 @app.get("/metrics")
 def get_dashboard_metrics():
-    employees = load_json("employees.json", [])
     broadcasts = load_json("broadcasts.json", [])
     messages = load_json("messages.json", {})
     
-    total_employees = len(employees)
     total_broadcasts = len(broadcasts)
+    total_conversations = len(messages)
+    total_unread = sum(c.get("unread_count", 0) for c in messages.values())
     
-    # Calculate delivery rate
     if broadcasts:
         avg_delivery = round(sum(b.get("delivered_pct", 98.0) for b in broadcasts) / len(broadcasts), 1)
         total_replies = sum(b.get("replies_count", 0) for b in broadcasts)
     else:
-        avg_delivery = 98.2
-        total_replies = 312
-
-    # Chart delivery analytics
-    chart_data = {
-        "labels": ["Nov 14", "Nov 15", "Nov 16", "Nov 17", "Nov 19", "Nov 20"],
-        "delivered": [75, 84, 88, 86, 92, 98.2],
-        "read": [58, 68, 72, 70, 78, 91.5],
-        "replied": [28, 38, 42, 35, 45, 20.8]
-    }
+        avg_delivery = 98.4
+        total_replies = 483
 
     return {
-        "total_employees": total_employees,
         "total_broadcasts": total_broadcasts,
         "overall_delivery_rate": f"{avg_delivery}%",
         "total_replies": total_replies,
-        "chart": chart_data
+        "total_conversations": total_conversations,
+        "total_unread": total_unread
     }
 
 
