@@ -782,6 +782,17 @@ async def receive_webhook(request: Request):
 # Serve Static UI files (supports public directory on Vercel and local static fallback)
 STATIC_DIR = BASE_DIR / "public" if (BASE_DIR / "public").exists() else BASE_DIR / "static"
 
+@app.get("/api/debug-db")
+def debug_mongodb():
+    if db is None:
+        return {"status": "error", "message": "db is None", "uri_set": bool(MONGODB_URI)}
+    try:
+        ping = db.command("ping")
+        count = db["chats"].count_documents({})
+        return {"status": "connected", "ping": ping, "chats_count": count}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @app.get("/")
 def get_root():
     index_file = STATIC_DIR / "index.html"
