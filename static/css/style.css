@@ -1,22 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --sidebar-bg: #0d1b2a;
-  --sidebar-active: #059669;
+  --sidebar-bg: #0a192f;
+  --sidebar-active: #00a651;
   --sidebar-text: #94a3b8;
-  --sidebar-hover: #1e293b;
-  --primary-green: #059669;
-  --primary-green-hover: #047857;
+  --sidebar-hover: #132844;
+  --primary-green: #00a651;
+  --primary-green-hover: #008c44;
   --primary-green-light: #ecfdf5;
   --primary-green-border: #a7f3d0;
-  --bg-main: #f8fafc;
+  --bg-main: #f3f6f9;
   --card-bg: #ffffff;
-  --border-color: #e2e8f0;
+  --border-color: #e5e9f0;
   --text-main: #0f172a;
   --text-muted: #64748b;
   --text-sub: #475569;
-  --badge-green-bg: #d1fae5;
-  --badge-green-text: #065f46;
+  --badge-green-bg: #ecfdf5;
+  --badge-green-text: #008c44;
   --chat-bubble-out: #dcfce7;
   --chat-bubble-in: #f1f5f9;
 }
@@ -57,21 +57,34 @@ body {
   border-right: 1px solid #1e293b;
 }
 
+.brand-logo-img {
+  height: 48px;
+  max-height: 52px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
 .logo-card {
   background: #ffffff;
-  border-radius: 12px;
-  padding: 10px 14px;
+  border-radius: 14px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  width: 100%;
   margin-bottom: 24px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border: 1px solid #e5e9f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
 }
 
 .logo-icon {
   width: 36px;
   height: 36px;
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  background: linear-gradient(135deg, #00a651 0%, #10b981 100%);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -90,7 +103,7 @@ body {
 .logo-arabic {
   font-size: 12px;
   font-weight: 700;
-  color: #059669;
+  color: #00a651;
   line-height: 1.2;
 }
 
@@ -256,7 +269,7 @@ body {
 .btn-icon-wrapper {
   position: relative;
   background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e9f0;
   border-radius: 50%;
   width: 38px;
   height: 38px;
@@ -265,23 +278,30 @@ body {
   justify-content: center;
   cursor: pointer;
   color: #475569;
+  overflow: visible;
 }
 
 .notification-count {
   position: absolute;
-  top: -2px;
-  right: -2px;
+  top: -4px;
+  right: -4px;
   background-color: #ef4444;
-  color: white;
+  color: #ffffff;
   font-size: 10px;
-  font-weight: 800;
-  width: 18px;
+  font-weight: 700;
+  min-width: 18px;
   height: 18px;
-  border-radius: 50%;
+  border-radius: 9999px;
+  padding: 0 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #fff;
+  text-align: center;
+  line-height: 1;
+  border: 2px solid #ffffff;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 10;
 }
 
 .avatar-header {
@@ -326,7 +346,8 @@ body {
 
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 14px rgba(0,0,0,0.05);
+  border-color: rgba(0, 166, 81, 0.45);
+  box-shadow: 0 4px 14px rgba(0, 166, 81, 0.08);
 }
 
 .stat-content {
@@ -344,7 +365,7 @@ body {
   justify-content: center;
 }
 
-.stat-icon.green { background: #d1fae5; color: #059669; }
+.stat-icon.green { background: #d1fae5; color: #00a651; }
 .stat-icon.blue { background: #e0f2fe; color: #0284c7; }
 .stat-icon.check-green { background: #dcfce7; color: #16a34a; }
 .stat-icon.purple { background: #f3e8ff; color: #9333ea; }
@@ -382,6 +403,12 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.02);
   display: flex;
   flex-direction: column;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-card:hover {
+  border-color: rgba(0, 166, 81, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 166, 81, 0.08);
 }
 
 .card-header {
@@ -538,7 +565,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #059669;
+  color: #00a651;
   font-size: 12px;
   font-weight: 600;
 }
@@ -594,7 +621,7 @@ body {
   font-weight: 700;
 }
 
-.metric-pill.del { color: #059669; }
+.metric-pill.del { color: #00a651; }
 .metric-pill.read { color: #0284c7; }
 .metric-pill.rep { color: #9333ea; }
 
@@ -637,12 +664,12 @@ body {
 
 .status-pill.completed {
   background-color: #d1fae5;
-  color: #065f46;
+  color: #008c44;
 }
 
 .btn-action-view {
   background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e9f0;
   border-radius: 6px;
   padding: 4px 12px;
   font-size: 12px;
@@ -652,7 +679,7 @@ body {
 }
 
 .btn-action-view:hover {
-  background: #e2e8f0;
+  background: #e5e9f0;
   color: var(--text-main);
 }
 
@@ -682,7 +709,7 @@ body {
   width: 100%;
   padding: 6px 10px;
   border-radius: 6px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e9f0;
   font-size: 12px;
   outline: none;
 }
@@ -827,7 +854,7 @@ body {
 .message-bubble.incoming {
   align-self: flex-start;
   background-color: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e9f0;
   color: var(--text-main);
   border-bottom-left-radius: 2px;
 }
@@ -836,7 +863,7 @@ body {
   align-self: flex-end;
   background-color: #dcfce7;
   border: 1px solid #bbf7d0;
-  color: #064e3b;
+  color: #00572b;
   border-bottom-right-radius: 2px;
 }
 
@@ -949,7 +976,7 @@ body {
   width: 40px;
   height: 40px;
   background: #ecfdf5;
-  color: #059669;
+  color: #00a651;
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -970,7 +997,7 @@ body {
   gap: 8px;
   padding: 8px 16px;
   border-radius: 20px;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid #e5e9f0;
   background: #ffffff;
   color: #475569;
   font-size: 13px;
@@ -985,9 +1012,9 @@ body {
 }
 
 .recipient-pill.active {
-  border-color: #059669;
+  border-color: #00a651;
   background: #ecfdf5;
-  color: #059669;
+  color: #00a651;
 }
 
 /* Dynamic Variables Labeled Inputs */
@@ -998,7 +1025,7 @@ body {
   background: #f8fafc;
   padding: 14px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e9f0;
 }
 
 .var-input-card {
@@ -1017,7 +1044,7 @@ body {
 }
 
 .var-tag {
-  background: #e2e8f0;
+  background: #e5e9f0;
   color: #475569;
   font-size: 11px;
   padding: 2px 6px;
@@ -1028,12 +1055,12 @@ body {
 /* Live WhatsApp Phone Preview Card */
 .preview-card-box {
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e9f0;
 }
 
 .preview-badge {
   background: #dcfce7;
-  color: #059669;
+  color: #00a651;
   font-size: 11px;
   font-weight: 700;
   padding: 4px 10px;
@@ -1173,7 +1200,7 @@ body {
   background: #ffffff;
   border-radius: 14px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e9f0;
   box-shadow: 0 4px 16px rgba(0,0,0,0.04);
 }
 
@@ -1181,7 +1208,7 @@ body {
 .wa-contacts-panel {
   width: 340px;
   background: #ffffff;
-  border-right: 1px solid #e2e8f0;
+  border-right: 1px solid #e5e9f0;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -1198,7 +1225,7 @@ body {
   align-items: center;
   gap: 8px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e9f0;
   border-radius: 8px;
   padding: 8px 12px;
 }
@@ -1235,14 +1262,14 @@ body {
 
 .wa-chat-row.active {
   background: #ecfdf5;
-  border-left: 4px solid #059669;
+  border-left: 4px solid #00a651;
 }
 
 .wa-avatar {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  background: linear-gradient(135deg, #00a651 0%, #10b981 100%);
   color: #ffffff;
   font-weight: 700;
   font-size: 15px;
@@ -1315,7 +1342,7 @@ body {
 .wa-chat-header {
   background: #ffffff;
   padding: 12px 20px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e5e9f0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1392,7 +1419,7 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid #e5e9f0;
 }
 
 .wa-icon-btn {
@@ -1409,7 +1436,7 @@ body {
 }
 
 .wa-icon-btn:hover {
-  background: #e2e8f0;
+  background: #e5e9f0;
 }
 
 .wa-message-input {
@@ -1425,7 +1452,7 @@ body {
 }
 
 .wa-send-btn {
-  background: #059669;
+  background: #00a651;
   border: none;
   color: #ffffff;
   width: 40px;
@@ -1439,7 +1466,7 @@ body {
 }
 
 .wa-send-btn:hover {
-  background: #047857;
+  background: #008c44;
   transform: scale(1.05);
 }
 
