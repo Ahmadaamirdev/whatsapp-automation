@@ -49,13 +49,27 @@ function setupNavigation() {
 
   // URL hash routing
   window.addEventListener('hashchange', () => {
-    const hash = window.location.hash.replace('#', '') || 'dashboard';
-    switchTab(hash);
+    const hash = window.location.hash.replace('#', '');
+    if (hash && hash !== currentTab) {
+      switchTab(hash);
+    }
   });
+
+  // Maintain active module on reload / page refresh
+  const urlHash = window.location.hash.replace('#', '');
+  const savedTab = localStorage.getItem('active_wa_tab');
+  const targetTab = urlHash || savedTab || 'dashboard';
+  switchTab(targetTab);
 }
 
 function switchTab(tabName) {
+  if (!tabName) tabName = 'dashboard';
   currentTab = tabName;
+  localStorage.setItem('active_wa_tab', tabName);
+  if (window.location.hash !== `#${tabName}`) {
+    history.replaceState(null, '', `#${tabName}`);
+  }
+
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const activeNav = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
   if (activeNav) activeNav.classList.add('active');

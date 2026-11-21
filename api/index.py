@@ -689,71 +689,88 @@ def verify_webhook(request: Request):
 @app.post("/webhook")
 async def receive_webhook(request: Request):
     """
-    Receives incoming WhatsApp messages and delivery statuses from Meta Cloud API.
+    Receives incoming WhatsApp messages and delivery statuses from Meta Cloud API
+    and Meta App Dashboard Test Tool.
     """
     try:
         body = await request.json()
-        entries = body.get("entry", [])
+        
+        # Extract values from all formats (Production & Meta Dashboard Test Tool)
+        values_to_process = []
+        if "entry" in body and isinstance(body["entry"], list):
+            for entry in body["entry"]:
+                for change in entry.get("changes", []):
+                    val = change.get("value")
+                    if isinstance(val, dict):
+                        values_to_process.append(val)
+        elif "messages" in body or "contacts" in body or "statuses" in body:
+            values_to_process.append(body)
+        elif "value" in body and isinstance(body["value"], dict):
+            values_to_process.append(body["value"])
         
         messages_db = load_json("messages.json", {})
         employees = load_json("employees.json", [])
         emp_lookup = {e.get("phone", "").replace("+", "").replace(" ", ""): e for e in employees}
         
-        for entry in entries:
-            for change in entry.get("changes", []):
-                value = change.get("value", {})
+        for value in values_to_process:
+            contacts = value.get("contacts") or body.get("contacts") or []
+            contact_profile = contacts[0].get("profile", {}) if len(contacts) > 0 and isinstance(contacts[0], dict) else {}
+            
+            # 1. Process incoming messages
+            for msg in value.get("messages", []):
+                raw_from = str(msg.get("from") or (contacts[0].get("wa_id") if contacts else "") or "unknown")
+                clean_sender = raw_from.lstrip("+").strip()
+                sender_phone = f"+{clean_sender}"
                 
-                # Check for incoming messages
-                for msg in value.get("messages", []):
-                    sender_phone = "+" + msg.get("from", "")
-                    clean_sender = msg.get("from", "")
-                    text_body = ""
-                    if msg.get("type") == "text":
-                        text_body = msg.get("text", {}).get("body", "")
-                    elif msg.get("type") == "button":
-                        text_body = msg.get("button", {}).get("text", "")
-                    else:
-                        text_body = f"[{msg.get('type')} message]"
+                text_body = ""
+                msg_type = msg.get("type", "text")
+                if msg_type == "text":
+                    text_body = msg.get("text", {}).get("body", "")
+                elif msg_type == "button":
+                    text_body = msg.get("button", {}).get("text", "")
+                else:
+                    text_body = f"[{msg_type} message]" if not msg.get("text") else msg.get("text", {}).get("body", "")
 
-                    # Lookup or create employee profile safely
-                    emp = emp_lookup.get(clean_sender)
-                    contacts = value.get("contacts") or []
-                    contact_profile = contacts[0].get("profile", {}) if len(contacts) > 0 else {}
-                    emp_name = emp.get("name") if emp else contact_profile.get("name", sender_phone)
-                    emp_dept = emp.get("department", "WhatsApp Contact") if emp else "WhatsApp Contact"
+                # Lookup employee profile or fallback to Meta profile name
+                emp = emp_lookup.get(clean_sender)
+                emp_name = emp.get("name") if emp else (contact_profile.get("name") or sender_phone)
+                emp_dept = emp.get("department", "WhatsApp Contact") if emp else "WhatsApp Contact"
 
-                    if sender_phone not in messages_db:
-                        messages_db[sender_phone] = {
-                            "employee_id": emp.get("id", "EMP-UNKNOWN") if emp else "EMP-NEW",
-                            "name": emp_name,
-                            "role": f"Employee • {emp_dept}",
-                            "unread_count": 0,
-                            "last_activity": "Just now",
-                            "messages": []
-                        }
+                if sender_phone not in messages_db:
+                    messages_db[sender_phone] = {
+                        "employee_id": emp.get("id", "EMP-UNKNOWN") if emp else "EMP-NEW",
+                        "name": emp_name,
+                        "role": f"Employee • {emp_dept}",
+                        "unread_count": 0,
+                        "last_activity": "Just now",
+                        "messages": [],
+                        "phone": sender_phone
+                    }
 
-                    now_time = datetime.now().strftime("%I:%M %p")
-                    messages_db[sender_phone]["messages"].append({
-                        "id": msg.get("id", str(time.time())),
-                        "direction": "incoming",
-                        "sender": emp_name,
-                        "text": text_body,
-                        "time": now_time,
-                        "timestamp": datetime.utcnow().isoformat() + "Z"
-                    })
-                    messages_db[sender_phone]["unread_count"] += 1
-                    messages_db[sender_phone]["last_activity"] = now_time
+                now_time = datetime.now().strftime("%I:%M %p")
+                messages_db[sender_phone]["name"] = emp_name
+                messages_db[sender_phone]["messages"].append({
+                    "id": msg.get("id", str(time.time())),
+                    "direction": "incoming",
+                    "sender": emp_name,
+                    "text": text_body,
+                    "time": now_time,
+                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                })
+                messages_db[sender_phone]["unread_count"] += 1
+                messages_db[sender_phone]["last_activity"] = now_time
 
-                # Check for status updates (sent / delivered / read)
-                for status_update in value.get("statuses", []):
-                    recipient_phone = "+" + status_update.get("recipient_id", "")
-                    status_val = status_update.get("status")
-                    msg_id = status_update.get("id")
-                    if recipient_phone in messages_db:
-                        for m in reversed(messages_db[recipient_phone].get("messages", [])):
-                            if m.get("id") == msg_id:
-                                m["status"] = status_val
-                                break
+            # 2. Check for status updates (sent / delivered / read)
+            for status_update in value.get("statuses", []):
+                raw_recipient = str(status_update.get("recipient_id", "")).lstrip("+")
+                recipient_phone = f"+{raw_recipient}"
+                status_val = status_update.get("status")
+                msg_id = status_update.get("id")
+                if recipient_phone in messages_db:
+                    for m in reversed(messages_db[recipient_phone].get("messages", [])):
+                        if m.get("id") == msg_id:
+                            m["status"] = status_val
+                            break
 
         save_json("messages.json", messages_db)
         return {"status": "success"}
