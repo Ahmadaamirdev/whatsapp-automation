@@ -48,6 +48,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def vercel_path_rewrite_middleware(request: Request, call_next):
+    scope_path = request.scope.get("path", "")
+    if scope_path in ["/api/index.py", "/api/index", "/index.py", "/api"]:
+        matched = request.headers.get("x-matched-path") or request.headers.get("x-forwarded-uri")
+        if matched and matched not in ["/api/index.py", "/api/index"]:
+            request.scope["path"] = matched.split("?")[0]
+    return await call_next(request)
+
 # Helper functions for data storage (safe for both local development and Vercel serverless /tmp fallback)
 def load_json(filename: str, default: Any = None):
     # Check writable DATA_DIR first
@@ -82,6 +91,7 @@ def save_json(filename: str, data: Any):
 
 # --- 1. SYSTEM & META STATUS ---
 @app.get("/api/status")
+@app.get("/status")
 def get_system_status():
     """Checks live Meta Cloud API connection and returns phone info."""
     result = {
@@ -114,6 +124,7 @@ def get_system_status():
 
 # --- 2. DASHBOARD KPI METRICS ---
 @app.get("/api/metrics")
+@app.get("/metrics")
 def get_dashboard_metrics():
     employees = load_json("employees.json", [])
     broadcasts = load_json("broadcasts.json", [])
@@ -151,6 +162,7 @@ def get_dashboard_metrics():
 AUDIT_FILE = "template_audit.json"
 
 @app.get("/api/templates")
+@app.get("/templates")
 def list_templates():
     """Fetches approved message templates directly from Meta Graph API and updates approval audit log."""
     live_templates = []
@@ -257,6 +269,7 @@ def list_templates():
     return {"templates": combined, "audit_history": audit_logs}
 
 @app.get("/api/templates/audit")
+@app.get("/templates/audit")
 def get_template_audit():
     """Returns the exact timestamp record of all templates submitted and approved."""
     return load_json(AUDIT_FILE, {})
@@ -272,6 +285,7 @@ class TemplateCreateRequest(BaseModel):
     example_variables: List[str] = []
 
 @app.post("/api/templates")
+@app.post("/templates")
 def create_template(tpl: TemplateCreateRequest):
     """Submits a new template directly to Meta WhatsApp Cloud API for approval."""
     components = []
@@ -346,6 +360,7 @@ def create_template(tpl: TemplateCreateRequest):
 
 # --- 4. EMPLOYEES DIRECTORY ---
 @app.get("/api/employees")
+@app.get("/employees")
 def get_employees(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=500),
@@ -383,6 +398,7 @@ def get_employees(
 
 # --- 5. BROADCASTS & OUTBOUND SENDER ---
 @app.get("/api/broadcasts")
+@app.get("/broadcasts")
 def get_broadcasts():
     broadcasts = load_json("broadcasts.json", [])
     return {"broadcasts": broadcasts}
@@ -397,6 +413,7 @@ class BroadcastSendRequest(BaseModel):
     test_number: Optional[str] = None  # Send real message to this phone number
 
 @app.post("/api/broadcasts/send")
+@app.post("/broadcasts/send")
 def send_broadcast(req: BroadcastSendRequest):
     employees = load_json("employees.json", [])
     broadcasts = load_json("broadcasts.json", [])
@@ -479,6 +496,7 @@ def send_broadcast(req: BroadcastSendRequest):
 
 # --- 6. LIVE CHAT & CONVERSATIONS ---
 @app.get("/api/chats")
+@app.get("/chats")
 def get_chats():
     messages_db = load_json("messages.json", {})
     chats_list = []
@@ -500,6 +518,7 @@ def get_chats():
     return {"chats": chats_list}
 
 @app.get("/api/chats/{phone}")
+@app.get("/chats/{phone}")
 def get_chat_history(phone: str):
     messages_db = load_json("messages.json", {})
     chat = messages_db.get(phone)
@@ -528,6 +547,7 @@ class SendChatMessageRequest(BaseModel):
     text: str
 
 @app.post("/api/chats/{phone}/send")
+@app.post("/chats/{phone}/send")
 def send_chat_message(phone: str, req: SendChatMessageRequest):
     """Sends a 1-on-1 direct message via WhatsApp Cloud API."""
     messages_db = load_json("messages.json", {})
@@ -585,6 +605,7 @@ def send_chat_message(phone: str, req: SendChatMessageRequest):
 
 # --- 7. META WEBHOOK (Verification & Receiver) ---
 @app.get("/api/webhook")
+@app.get("/webhook")
 def verify_webhook(request: Request):
     """
     Handles Meta's Webhook verification challenge.
@@ -602,6 +623,7 @@ def verify_webhook(request: Request):
     raise HTTPException(status_code=403, detail="Verification token mismatch")
 
 @app.post("/api/webhook")
+@app.post("/webhook")
 async def receive_webhook(request: Request):
     """
     Receives incoming WhatsApp messages and delivery statuses from Meta Cloud API.
