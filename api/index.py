@@ -783,6 +783,7 @@ async def receive_webhook(request: Request):
 STATIC_DIR = BASE_DIR / "public" if (BASE_DIR / "public").exists() else BASE_DIR / "static"
 
 @app.get("/api/debug-db")
+@app.get("/debug-db")
 def debug_mongodb():
     if db is None:
         return {"status": "error", "message": "db is None", "uri_set": bool(MONGODB_URI)}
