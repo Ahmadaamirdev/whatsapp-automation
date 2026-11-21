@@ -23,7 +23,12 @@ WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
 WEBHOOK_VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "alhaditha_wa_webhook_verify_2026")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SEED_DATA_DIR = BASE_DIR / "data"
+possible_data_dirs = [
+    Path(__file__).resolve().parent / "data",
+    BASE_DIR / "data",
+    Path.cwd() / "data"
+]
+SEED_DATA_DIR = next((p for p in possible_data_dirs if p.exists()), BASE_DIR / "data")
 
 # Serverless environment (Vercel) detection
 IS_VERCEL = bool(os.getenv("VERCEL"))

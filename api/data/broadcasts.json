@@ -1,0 +1,58 @@
+[
+  {
+    "id": "BC-1024",
+    "date": "Nov 20, 2026 • 04:30 PM",
+    "timestamp": "2026-11-20T16:30:00Z",
+    "template": "General Announcement",
+    "template_name": "general_announcement",
+    "content": "Dear Team, This is a general announcement from Al Haditha Energy. Thank you for your continued support.",
+    "recipients_count": 1500,
+    "recipient_filter": "All Employees (1,500)",
+    "status": "Completed",
+    "delivered_pct": 98.2,
+    "read_pct": 91.5,
+    "replies_count": 312
+  },
+  {
+    "id": "BC-1023",
+    "date": "Nov 18, 2026 • 11:15 AM",
+    "timestamp": "2026-11-18T11:15:00Z",
+    "template": "System Maintenance",
+    "template_name": "system_maintenance",
+    "content": "Dear Staff, Scheduled system maintenance will occur on Friday from 12 AM to 4 AM. Internal portal may be unavailable.",
+    "recipients_count": 1500,
+    "recipient_filter": "All Employees (1,500)",
+    "status": "Completed",
+    "delivered_pct": 99.1,
+    "read_pct": 89.4,
+    "replies_count": 48
+  },
+  {
+    "id": "BC-1022",
+    "date": "Nov 15, 2026 • 02:20 PM",
+    "timestamp": "2026-11-15T14:20:00Z",
+    "template": "HR Update",
+    "template_name": "hr_update",
+    "content": "HR Announcement: Annual medical insurance cards have been renewed. Please collect from HR desk.",
+    "recipients_count": 1500,
+    "recipient_filter": "All Employees (1,500)",
+    "status": "Completed",
+    "delivered_pct": 97.8,
+    "read_pct": 93.1,
+    "replies_count": 89
+  },
+  {
+    "id": "BC-1021",
+    "date": "Nov 12, 2026 • 10:10 AM",
+    "timestamp": "2026-11-12T10:10:00Z",
+    "template": "Policy Reminder",
+    "template_name": "policy_reminder",
+    "content": "Safety First: All site engineers and field contractors must adhere to mandatory PPE standards.",
+    "recipients_count": 1500,
+    "recipient_filter": "All Employees (1,500)",
+    "status": "Completed",
+    "delivered_pct": 98.6,
+    "read_pct": 94.0,
+    "replies_count": 34
+  }
+]
