@@ -1,0 +1,96 @@
+{
+  "+923306579717": {
+    "employee_id": "EMP-1001",
+    "name": "Ahmed Raza",
+    "role": "Employee • HR Department",
+    "unread_count": 0,
+    "last_activity": "04:32 PM",
+    "messages": [
+      {
+        "id": "m1",
+        "direction": "incoming",
+        "sender": "Ahmed Raza",
+        "text": "Assalamu alaikum, will there be any office closure this week?",
+        "time": "04:31 PM",
+        "timestamp": "2026-11-20T16:31:00Z"
+      },
+      {
+        "id": "m2",
+        "direction": "outgoing",
+        "sender": "Al Haditha HR",
+        "text": "Wa Alaikum Assalam,\nNo, there will be no closure this week.",
+        "time": "04:32 PM",
+        "timestamp": "2026-11-20T16:32:00Z",
+        "status": "read"
+      },
+      {
+        "id": "m3",
+        "direction": "incoming",
+        "sender": "Ahmed Raza",
+        "text": "Thank you!",
+        "time": "04:32 PM",
+        "timestamp": "2026-11-20T16:32:45Z"
+      }
+    ]
+  },
+  "+96891234502": {
+    "employee_id": "EMP-1002",
+    "name": "Fatima Khan",
+    "role": "Employee • Finance",
+    "unread_count": 0,
+    "last_activity": "04:20 PM",
+    "messages": [
+      {
+        "id": "m4",
+        "direction": "outgoing",
+        "sender": "Al Haditha HR",
+        "text": "Dear Fatima, please submit your travel invoice before Wednesday.",
+        "time": "04:15 PM",
+        "timestamp": "2026-11-20T16:15:00Z",
+        "status": "read"
+      },
+      {
+        "id": "m5",
+        "direction": "incoming",
+        "sender": "Fatima Khan",
+        "text": "Okay, noted.",
+        "time": "04:20 PM",
+        "timestamp": "2026-11-20T16:20:00Z"
+      }
+    ]
+  },
+  "+96891234503": {
+    "employee_id": "EMP-1003",
+    "name": "Usman Ali",
+    "role": "Employee • Operations",
+    "unread_count": 0,
+    "last_activity": "03:55 PM",
+    "messages": [
+      {
+        "id": "m6",
+        "direction": "incoming",
+        "sender": "Usman Ali",
+        "text": "When is the next HSE training scheduled?",
+        "time": "03:55 PM",
+        "timestamp": "2026-11-20T15:55:00Z"
+      }
+    ]
+  },
+  "+96891234504": {
+    "employee_id": "EMP-1004",
+    "name": "Sara Ahmed",
+    "role": "Employee • Engineering",
+    "unread_count": 0,
+    "last_activity": "03:40 PM",
+    "messages": [
+      {
+        "id": "m7",
+        "direction": "incoming",
+        "sender": "Sara Ahmed",
+        "text": "Thanks for info!",
+        "time": "03:40 PM",
+        "timestamp": "2026-11-20T15:40:00Z"
+      }
+    ]
+  }
+}
