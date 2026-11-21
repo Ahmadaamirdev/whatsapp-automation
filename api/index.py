@@ -20,9 +20,9 @@ META_APP_ID = os.getenv("META_APP_ID", "2049923772374313")
 META_APP_SECRET = os.getenv("META_APP_SECRET", "18d803ccb0bcffc61a250dde640ecbb2")
 WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "1451021148100534")
 WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv("WHATSAPP_BUSINESS_ACCOUNT_ID", "1153445740531196")
-WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "EAAdIZARJE3SkBTLuCaPuXnte5eTjR3JynrWZADluzTlJJ4ZAkdTmmZAYLM5m379nN94c6GDxOZCp7DmMLBfSn0UoI4rnadTVz2QnZCJBuxXYAJHZA8jGChjwfIXulMEIrmWBNhDvdNWjgRZBXqrpbprmArVKHkoFwuVA06glC06bbRtpPIJDbnxPcY8xSRkH2wZDZD")
 WEBHOOK_VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "alhaditha_wa_webhook_verify_2026")
-MONGODB_URI = os.getenv("MONGODB_URI", "")
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb+srv://m4musa592_db_user:qgQ9616OC2mI5Mn0@cluster0.thsts0e.mongodb.net/alhaditha_wa?retryWrites=true&w=majority")
 AUDIT_FILE = "template_audit.json"
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -586,23 +586,23 @@ def get_chat_history(phone: str):
     messages_db = load_json("messages.json", {})
     chat = messages_db.get(phone)
     if not chat:
-        # Check in employees list to create a clean thread
+        # Return an empty thread without polluting the database until a message is sent
         employees = load_json("employees.json", [])
         emp = next((e for e in employees if e.get("phone") == phone), None)
-        chat = {
-            "employee_id": emp.get("id", "EMP-TEMP") if emp else "EMP-TEMP",
-            "name": emp.get("name", "Employee") if emp else "Employee",
-            "role": f"Employee • {emp.get('department', 'General')}" if emp else "Employee",
+        return {
+            "employee_id": emp.get("id", "EMP-NEW") if emp else "EMP-NEW",
+            "name": emp.get("name", phone) if emp else phone,
+            "role": f"Employee • {emp.get('department', 'WhatsApp')}" if emp else "WhatsApp Contact",
             "unread_count": 0,
-            "last_activity": "Just now",
-            "messages": []
+            "last_activity": "New chat",
+            "messages": [],
+            "phone": phone
         }
-        messages_db[phone] = chat
-        save_json("messages.json", messages_db)
     else:
         # Mark as read
-        chat["unread_count"] = 0
-        save_json("messages.json", messages_db)
+        if chat.get("unread_count", 0) > 0:
+            chat["unread_count"] = 0
+            save_json("messages.json", messages_db)
         
     return chat
 
@@ -743,6 +743,17 @@ async def receive_webhook(request: Request):
                     })
                     messages_db[sender_phone]["unread_count"] += 1
                     messages_db[sender_phone]["last_activity"] = now_time
+
+                # Check for status updates (sent / delivered / read)
+                for status_update in value.get("statuses", []):
+                    recipient_phone = "+" + status_update.get("recipient_id", "")
+                    status_val = status_update.get("status")
+                    msg_id = status_update.get("id")
+                    if recipient_phone in messages_db:
+                        for m in reversed(messages_db[recipient_phone].get("messages", [])):
+                            if m.get("id") == msg_id:
+                                m["status"] = status_val
+                                break
 
         save_json("messages.json", messages_db)
         return {"status": "success"}
