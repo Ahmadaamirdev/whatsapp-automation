@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Announcement System - Al Haditha Energy</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <!-- Lucide Icons for clean SVG rendering -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      <!-- LOGO CARD -->
+      <div class="logo-card">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">
+          <span class="logo-arabic">الحديثة للطاقة</span>
+          <span class="logo-english">AL-HADITHA ENERGY</span>
+        </div>
+      </div>
+
+      <!-- NAVIGATION MENU -->
+      <nav class="nav-menu">
+        <a href="#dashboard" class="nav-item active" data-tab="dashboard">
+          <i data-lucide="layout-grid"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="#broadcasts" class="nav-item" data-tab="broadcasts">
+          <i data-lucide="megaphone"></i>
+          <span>Broadcasts</span>
+        </a>
+        <a href="#messages" class="nav-item" data-tab="messages">
+          <i data-lucide="message-square"></i>
+          <span>Messages</span>
+        </a>
+        <a href="#employees" class="nav-item" data-tab="employees">
+          <i data-lucide="users"></i>
+          <span>Employees</span>
+        </a>
+        <a href="#delivery-logs" class="nav-item" data-tab="delivery-logs">
+          <i data-lucide="bar-chart-2"></i>
+          <span>Delivery Logs</span>
+        </a>
+        <a href="#templates" class="nav-item" data-tab="templates">
+          <i data-lucide="file-text"></i>
+          <span>Templates</span>
+        </a>
+        <a href="#settings" class="nav-item" data-tab="settings">
+          <i data-lucide="settings"></i>
+          <span>Settings</span>
+        </a>
+      </nav>
+
+      <!-- SIDEBAR BOTTOM -->
+      <div class="sidebar-bottom">
+        <a href="#logout" class="nav-item" id="logoutBtn" style="padding: 6px 12px;">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </a>
+        <div class="user-profile">
+          <div class="avatar-circle">
+            <span>AM</span>
+            <span class="online-dot"></span>
+          </div>
+          <div class="user-info">
+            <h4>Ali Musa</h4>
+            <p>Admin</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN WRAPPER -->
+    <main class="main-wrapper">
+      <!-- TOP HEADER -->
+      <header class="top-header">
+        <div class="header-left">
+          <h3>Welcome back,</h3>
+          <h1>WhatsApp Announcement System</h1>
+          <p>Broadcast announcements and chat with your employees seamlessly</p>
+        </div>
+        <div class="header-right">
+          <div class="badge-verified" id="metaBadge">
+            <i data-lucide="check-circle-2" style="width: 14px; height: 14px;"></i>
+            <span>Meta WhatsApp Verified</span>
+          </div>
+          <div class="btn-icon-wrapper" title="Notifications">
+            <i data-lucide="bell" style="width: 18px; height: 18px;"></i>
+            <span class="notification-count">3</span>
+          </div>
+          <div class="avatar-header">AM</div>
+        </div>
+      </header>
+
+      <!-- VIEW: DASHBOARD (Exact Match to User UI Reference) -->
+      <div id="view-dashboard" class="content-body tab-view">
+        <!-- 4 KPI STATS CARDS -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon green">
+                <i data-lucide="users"></i>
+              </div>
+              <div class="stat-info">
+                <p>Total Employees</p>
+                <h2 id="metricTotalEmployees">1,500</h2>
+              </div>
+            </div>
+            <div class="stat-arrow">&rarr;</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon blue">
+                <i data-lucide="send"></i>
+              </div>
+              <div class="stat-info">
+                <p>Total Broadcasts</p>
+                <h2 id="metricTotalBroadcasts">24</h2>
+              </div>
+            </div>
+            <div class="stat-arrow">&rarr;</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon check-green">
+                <i data-lucide="check-circle-2"></i>
+              </div>
+              <div class="stat-info">
+                <p>Overall Delivery Rate</p>
+                <h2 id="metricDeliveryRate">98.2%</h2>
+              </div>
+            </div>
+            <div class="stat-arrow">&rarr;</div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon purple">
+                <i data-lucide="message-circle"></i>
+              </div>
+              <div class="stat-info">
+                <p>Total Replies</p>
+                <h2 id="metricTotalReplies">312</h2>
+              </div>
+            </div>
+            <div class="stat-arrow">&rarr;</div>
+          </div>
+        </div>
+
+        <!-- MIDDLE ROW: CREATE BROADCAST + DELIVERY ANALYTICS -->
+        <div class="dashboard-grid">
+          <!-- CREATE BROADCAST CARD -->
+          <div class="dashboard-card">
+            <div class="card-title-group">
+              <i data-lucide="megaphone" style="color: var(--primary-green);"></i>
+              <h3>Create Broadcast</h3>
+            </div>
+            <p class="card-subtitle">Send an announcement to your employees using approved WhatsApp templates.</p>
+
+            <div class="broadcast-form-grid">
+              <!-- TEMPLATE & TEXT AREA -->
+              <div class="form-group">
+                <label class="form-label">
+                  <i data-lucide="file-text" style="width: 14px; height: 14px;"></i>
+                  <span>Select Template</span>
+                </label>
+                <select id="broadcastTemplateSelect" class="form-select">
+                  <option value="general_announcement">General Announcement (Utility)</option>
+                  <option value="system_maintenance">System Maintenance (Utility)</option>
+                  <option value="hr_update">HR Update (Utility)</option>
+                  <option value="hello_world">hello_world (Meta Verified)</option>
+                </select>
+
+                <div id="dynamicVariablesContainer" style="display: none; margin-top: 8px; flex-direction: column; gap: 6px;"></div>
+
+                <div style="margin-top: 8px;">
+                  <textarea id="broadcastContentPreview" class="template-textarea" placeholder="Announcement content..."></textarea>
+                  <div class="char-counter"><span id="charCount">89</span> / 1024</div>
+                </div>
+              </div>
+
+              <!-- RECIPIENT SELECTOR -->
+              <div class="form-group">
+                <label class="form-label">
+                  <i data-lucide="users" style="width: 14px; height: 14px;"></i>
+                  <span>Select Recipients</span>
+                </label>
+                <div class="recipient-options">
+                  <label class="radio-label">
+                    <input type="radio" name="recipientFilter" value="all" checked>
+                    <span>All Employees (1,500)</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="recipientFilter" value="department">
+                    <span>By Department</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="recipientFilter" value="location">
+                    <span>By Location</span>
+                  </label>
+                  <label class="radio-label">
+                    <input type="radio" name="recipientFilter" value="custom">
+                    <span>Custom List</span>
+                  </label>
+                </div>
+
+                <div id="filterSubSelector" style="margin-top: 10px; display: none;">
+                  <select id="filterDropdown" class="form-select"></select>
+                </div>
+              </div>
+            </div>
+
+            <!-- BROADCAST FOOTER -->
+            <div class="broadcast-footer">
+              <div class="footer-left">
+                <button type="button" class="btn-link" id="addMediaBtn">
+                  <i data-lucide="paperclip" style="width: 14px; height: 14px;"></i>
+                  <span>Add Media (Optional)</span>
+                </button>
+                <div class="approved-badge">
+                  <i data-lucide="check-circle-2" style="width: 14px; height: 14px;"></i>
+                  <span>Using approved Meta template</span>
+                </div>
+              </div>
+              <button type="button" class="btn-send" id="sendBroadcastBtn">
+                <i data-lucide="send" style="width: 16px; height: 16px;"></i>
+                <span>Send Broadcast</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- DELIVERY ANALYTICS CARD -->
+          <div class="dashboard-card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <i data-lucide="bar-chart-2" style="color: var(--primary-green);"></i>
+                <h3>Delivery Analytics</h3>
+              </div>
+              <select class="form-select" style="width: 120px; padding: 4px 8px; font-size: 12px;">
+                <option>Last 7 Days</option>
+                <option>Last 30 Days</option>
+              </select>
+            </div>
+
+            <!-- ANALYTICS SVG CHART -->
+            <div class="analytics-chart-container">
+              <div style="display: flex; justify-content: flex-end; gap: 14px; font-size: 11px; margin-bottom: 6px;">
+                <span style="color: #059669; font-weight: 700;">● Delivered</span>
+                <span style="color: #0284c7; font-weight: 700;">● Read</span>
+                <span style="color: #9333ea; font-weight: 700;">● Replied</span>
+              </div>
+              <svg class="chart-svg" viewBox="0 0 500 160">
+                <defs>
+                  <linearGradient id="gradDelivered" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#10b981" stop-opacity="0.25"/>
+                    <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+                  </linearGradient>
+                  <linearGradient id="gradRead" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#0284c7" stop-opacity="0.2"/>
+                    <stop offset="100%" stop-color="#0284c7" stop-opacity="0.0"/>
+                  </linearGradient>
+                </defs>
+
+                <!-- Grid Lines -->
+                <line x1="40" y1="20" x2="490" y2="20" stroke="#f1f5f9" stroke-width="1" />
+                <text x="5" y="24" fill="#94a3b8" font-size="10">100%</text>
+
+                <line x1="40" y1="50" x2="490" y2="50" stroke="#f1f5f9" stroke-width="1" />
+                <text x="12" y="54" fill="#94a3b8" font-size="10">75%</text>
+
+                <line x1="40" y1="80" x2="490" y2="80" stroke="#f1f5f9" stroke-width="1" />
+                <text x="12" y="84" fill="#94a3b8" font-size="10">50%</text>
+
+                <line x1="40" y1="110" x2="490" y2="110" stroke="#f1f5f9" stroke-width="1" />
+                <text x="12" y="114" fill="#94a3b8" font-size="10">25%</text>
+
+                <line x1="40" y1="140" x2="490" y2="140" stroke="#e2e8f0" stroke-width="1" />
+                <text x="18" y="144" fill="#94a3b8" font-size="10">0%</text>
+
+                <!-- Area fills -->
+                <polygon points="50,60 130,35 210,25 290,30 370,22 450,18 450,140 50,140" fill="url(#gradDelivered)" />
+
+                <!-- Lines -->
+                <!-- Delivered (Green) -->
+                <polyline points="50,60 130,35 210,25 290,30 370,22 450,18" fill="none" stroke="#059669" stroke-width="2.5" />
+                <circle cx="50" cy="60" r="3.5" fill="#059669" />
+                <circle cx="130" cy="35" r="3.5" fill="#059669" />
+                <circle cx="210" cy="25" r="3.5" fill="#059669" />
+                <circle cx="290" cy="30" r="3.5" fill="#059669" />
+                <circle cx="370" cy="22" r="3.5" fill="#059669" />
+                <circle cx="450" cy="18" r="3.5" fill="#059669" />
+
+                <!-- Read (Blue) -->
+                <polyline points="50,85 130,68 210,55 290,62 370,48 450,30" fill="none" stroke="#0284c7" stroke-width="2" />
+                <circle cx="50" cy="85" r="3" fill="#0284c7" />
+                <circle cx="130" cy="68" r="3" fill="#0284c7" />
+                <circle cx="210" cy="55" r="3" fill="#0284c7" />
+                <circle cx="290" cy="62" r="3" fill="#0284c7" />
+                <circle cx="370" cy="48" r="3" fill="#0284c7" />
+                <circle cx="450" cy="30" r="3" fill="#0284c7" />
+
+                <!-- Replied (Purple) -->
+                <polyline points="50,115 130,95 210,88 290,100 370,82 450,118" fill="none" stroke="#9333ea" stroke-width="2" />
+                <circle cx="50" cy="115" r="3" fill="#9333ea" />
+                <circle cx="130" cy="95" r="3" fill="#9333ea" />
+                <circle cx="210" cy="88" r="3" fill="#9333ea" />
+                <circle cx="290" cy="100" r="3" fill="#9333ea" />
+                <circle cx="370" cy="82" r="3" fill="#9333ea" />
+                <circle cx="450" cy="118" r="3" fill="#9333ea" />
+
+                <!-- X Axis labels -->
+                <text x="40" y="155" fill="#64748b" font-size="10">Nov 14</text>
+                <text x="120" y="155" fill="#64748b" font-size="10">Nov 15</text>
+                <text x="200" y="155" fill="#64748b" font-size="10">Nov 16</text>
+                <text x="280" y="155" fill="#64748b" font-size="10">Nov 17</text>
+                <text x="360" y="155" fill="#64748b" font-size="10">Nov 19</text>
+                <text x="440" y="155" fill="#64748b" font-size="10">Nov 20</text>
+              </svg>
+            </div>
+
+            <!-- ANALYTICS FOOTER METRICS -->
+            <div class="analytics-stats-footer">
+              <div class="metric-pill del">
+                <i data-lucide="check-circle-2" style="width: 16px; height: 16px;"></i>
+                <span>98.2%</span> <small style="font-weight: 500; font-size: 11px;">Delivered</small>
+              </div>
+              <div class="metric-pill read">
+                <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
+                <span>91.5%</span> <small style="font-weight: 500; font-size: 11px;">Read</small>
+              </div>
+              <div class="metric-pill rep">
+                <i data-lucide="corner-up-left" style="width: 16px; height: 16px;"></i>
+                <span>20.8%</span> <small style="font-weight: 500; font-size: 11px;">Replied</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BOTTOM ROW: RECENT BROADCASTS + LIVE CHAT -->
+        <div class="dashboard-grid">
+          <!-- RECENT BROADCASTS TABLE -->
+          <div class="dashboard-card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <i data-lucide="history" style="color: var(--primary-green);"></i>
+                <h3>Recent Broadcasts</h3>
+              </div>
+              <a href="#broadcasts" class="btn-link" style="color: var(--primary-green);">
+                <span>View All</span>
+                <i data-lucide="arrow-right" style="width: 14px; height: 14px;"></i>
+              </a>
+            </div>
+
+            <div class="table-responsive">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Template</th>
+                    <th>Recipients</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="recentBroadcastsTableBody">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- LIVE CHAT WIDGET -->
+          <div class="dashboard-card">
+            <div class="card-header" style="margin-bottom: 10px;">
+              <div class="card-title-group">
+                <i data-lucide="message-square" style="color: var(--primary-green);"></i>
+                <h3>Live Chat</h3>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #059669; font-weight: 600;">
+                <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span>
+                <span>Online</span>
+              </div>
+            </div>
+
+            <div class="live-chat-container">
+              <!-- CHAT SIDEBAR / CONVERSATION LIST -->
+              <div class="chat-sidebar">
+                <div class="chat-search-box">
+                  <input type="text" id="chatSearchInput" class="chat-search-input" placeholder="Search employee...">
+                </div>
+                <div class="chat-list" id="chatListContainer">
+                  <!-- Populated by JS -->
+                </div>
+              </div>
+
+              <!-- ACTIVE CHAT WINDOW -->
+              <div class="chat-active-window">
+                <div class="chat-active-header">
+                  <div class="chat-contact-details">
+                    <div class="chat-avatar sa" id="activeChatAvatar">SA</div>
+                    <div>
+                      <h4 id="activeChatName">Ahmed Raza</h4>
+                      <p id="activeChatRole">Employee • HR Department</p>
+                    </div>
+                  </div>
+                  <i data-lucide="more-vertical" style="width: 16px; height: 16px; color: var(--text-muted); cursor: pointer;"></i>
+                </div>
+
+                <div class="chat-messages-area" id="chatMessagesArea">
+                  <!-- Messages populated by JS -->
+                </div>
+
+                <div class="chat-input-bar">
+                  <button type="button" class="btn-link" style="padding: 4px;" title="Attach media">
+                    <i data-lucide="paperclip" style="width: 16px; height: 16px;"></i>
+                  </button>
+                  <input type="text" id="chatMessageInput" class="chat-input" placeholder="Type a message...">
+                  <button type="button" class="btn-chat-send" id="chatSendBtn">
+                    <i data-lucide="send" style="width: 14px; height: 14px;"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: TEMPLATES (Approval & Creation) -->
+      <div id="view-templates" class="content-body tab-view" style="display: none;">
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div>
+              <h2 style="font-size: 20px; font-weight: 800;">Meta WhatsApp Message Templates</h2>
+              <p style="font-size: 13px; color: var(--text-muted);">Manage approved templates or submit new dynamic templates directly to Meta Cloud API.</p>
+            </div>
+            <button class="btn-send" id="btnOpenNewTemplateModal">
+              <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+              <span>Create New Template</span>
+            </button>
+          </div>
+
+          <div class="table-responsive" style="margin-top: 14px;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Template Name</th>
+                  <th>Category</th>
+                  <th>Language</th>
+                  <th>Status</th>
+                  <th>Variables</th>
+                  <th>Body Preview</th>
+                </tr>
+              </thead>
+              <tbody id="templatesTableBody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: EMPLOYEES (1,500 Directory) -->
+      <div id="view-employees" class="content-body tab-view" style="display: none;">
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div>
+              <h2 style="font-size: 20px; font-weight: 800;">Employee Directory (1,500 Total)</h2>
+              <p style="font-size: 13px; color: var(--text-muted);">Manage employee WhatsApp contacts, departments, and communication groups.</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <select id="employeeDeptFilter" class="form-select" style="width: 160px;">
+                <option value="All">All Departments</option>
+              </select>
+              <input type="text" id="employeeSearchInput" class="form-input" placeholder="Search name, phone, ID..." style="width: 220px;">
+            </div>
+          </div>
+
+          <div class="table-responsive" style="margin-top: 14px;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Employee ID</th>
+                  <th>Full Name</th>
+                  <th>WhatsApp Number</th>
+                  <th>Department</th>
+                  <th>Location</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="employeesTableBody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+            <span style="font-size: 13px; color: var(--text-muted);" id="paginationInfo">Showing 1 to 50 of 1,500 employees</span>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-action-view" id="prevPageBtn">Previous</button>
+              <button class="btn-action-view" id="nextPageBtn">Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: BROADCASTS & DELIVERY LOGS -->
+      <div id="view-broadcasts" class="content-body tab-view" style="display: none;">
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div>
+              <h2 style="font-size: 20px; font-weight: 800;">Broadcast History & Delivery Logs</h2>
+              <p style="font-size: 13px; color: var(--text-muted);">Comprehensive logs of all sent announcements and delivery statuses.</p>
+            </div>
+          </div>
+          <div class="table-responsive" style="margin-top: 14px;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Broadcast ID</th>
+                  <th>Timestamp</th>
+                  <th>Template</th>
+                  <th>Recipients</th>
+                  <th>Delivery Rate</th>
+                  <th>Read Rate</th>
+                  <th>Replies</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="fullBroadcastsTableBody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: SETTINGS (Meta Cloud API & Webhooks) -->
+      <div id="view-settings" class="content-body tab-view" style="display: none;">
+        <div class="dashboard-card" style="max-width: 800px;">
+          <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 8px;">Meta WhatsApp Cloud API Configuration</h2>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 24px;">Connection details and credentials verified with Meta Developers Platform.</p>
+
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div class="form-group">
+              <label class="form-label">Phone Number (Verified)</label>
+              <input type="text" class="form-input" id="settingsPhone" value="+92 330 6579717 (Siddiqui Innovations)" readonly>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Phone Number ID</label>
+              <input type="text" class="form-input" value="1451021148100534" readonly>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">WhatsApp Business Account (WABA) ID</label>
+              <input type="text" class="form-input" value="1153445740531196" readonly>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Webhook Verify Token</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" class="form-input" id="settingsVerifyToken" value="alhaditha_wa_webhook_verify_2026" readonly>
+                <button class="btn-action-view" onclick="navigator.clipboard.writeText('alhaditha_wa_webhook_verify_2026'); alert('Copied Verify Token!');">Copy</button>
+              </div>
+              <small style="color: var(--text-muted); margin-top: 4px;">Paste this exact token into Meta App Dashboard &gt; Configure Webhooks &gt; Verify token.</small>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Vercel Webhook Callback URL</label>
+              <input type="text" class="form-input" id="settingsCallbackUrl" value="https://<your-vercel-domain>.vercel.app/api/webhook" readonly>
+              <small style="color: var(--text-muted); margin-top: 4px;">Once deployed to Vercel, copy your Vercel deployment URL and paste it into Meta's Callback URL field.</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL: CREATE & SUBMIT NEW META TEMPLATE -->
+  <div id="newTemplateModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Create & Submit Template to Meta</h3>
+        <button class="btn-close-modal" id="btnCloseModal">&times;</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="form-group">
+          <label class="form-label">Template Name (lowercase, no spaces)</label>
+          <input type="text" id="tplNameInput" class="form-input" placeholder="e.g. staff_urgent_notice">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="tplCategorySelect" class="form-select">
+              <option value="UTILITY">UTILITY (Recommended for Announcements)</option>
+              <option value="MARKETING">MARKETING</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Language</label>
+            <select id="tplLangSelect" class="form-select">
+              <option value="en_US">English (en_US)</option>
+              <option value="ar">Arabic (ar)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Header (Optional)</label>
+          <input type="text" id="tplHeaderInput" class="form-input" placeholder="e.g. Al Haditha Energy Announcement">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Body Text (Use {{1}}, {{2}} for dynamic text)</label>
+          <textarea id="tplBodyInput" class="template-textarea" style="height: 90px;" placeholder="Dear {{1}}, please be advised of the following update: {{2}}. Thank you."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Example Variables (Required by Meta for approval)</label>
+          <input type="text" id="tplExampleInput" class="form-input" placeholder="e.g. Ahmed, Schedule Update (comma separated)">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Footer (Optional)</label>
+          <input type="text" id="tplFooterInput" class="form-input" placeholder="e.g. Al Haditha Energy Management">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
+        <button type="button" class="btn-action-view" id="btnCancelModal">Cancel</button>
+        <button type="button" class="btn-send" id="btnSubmitTemplateToMeta">Submit to Meta</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

@@ -1,12 +1,13 @@
 {
   "functions": {
     "api/index.py": {
-      "includeFiles": "data/**"
+      "includeFiles": [
+        "data/**",
+        "public/**"
+      ]
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.py" },
-    { "source": "/", "destination": "/static/index.html" },
-    { "source": "/(.*)", "destination": "/static/$1" }
+    { "source": "/api/(.*)", "destination": "/api/index.py" }
   ]
 }

@@ -7,6 +7,7 @@ from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 import requests
 from fastapi import FastAPI, Request, Response, Query, HTTPException, status
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -658,7 +659,16 @@ async def receive_webhook(request: Request):
         return {"status": "error", "message": str(e)}
 
 
-# Serve Static UI files
-STATIC_DIR = BASE_DIR / "static"
+# Serve Static UI files (supports public directory on Vercel and local static fallback)
+STATIC_DIR = BASE_DIR / "public" if (BASE_DIR / "public").exists() else BASE_DIR / "static"
+
+@app.get("/")
+def get_root():
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    return {"message": "Al Haditha WhatsApp System API is running"}
+
 if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static_dir")
     app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
