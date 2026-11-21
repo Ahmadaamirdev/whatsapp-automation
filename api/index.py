@@ -41,12 +41,23 @@ DATA_DIR = Path("/tmp/data") if IS_VERCEL else SEED_DATA_DIR
 db = None
 if MONGODB_URI:
     try:
-        mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+        import certifi
+        ca = certifi.where()
+        mongo_client = MongoClient(
+            MONGODB_URI,
+            serverSelectionTimeoutMS=5000,
+            tlsCAFile=ca,
+            tlsAllowInvalidCertificates=True
+        )
         db = mongo_client["alhaditha_wa"]
         print("[MONGODB] Connected to MongoDB Atlas (database: alhaditha_wa)")
     except Exception as e:
-        print(f"[MONGODB ERROR] Connection failed: {e}")
-        db = None
+        try:
+            mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000, tls=True)
+            db = mongo_client["alhaditha_wa"]
+        except Exception as e2:
+            print(f"[MONGODB ERROR] Connection failed: {e2}")
+            db = None
 
 app = FastAPI(
     title="Al-Haditha WhatsApp Announcement System",
