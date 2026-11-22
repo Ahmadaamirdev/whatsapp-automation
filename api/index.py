@@ -399,14 +399,45 @@ def create_template(tpl: TemplateCreateRequest):
         "text": tpl.body_text
     }
     
-    # If dynamic variables {{1}}, {{2}} exist, Meta requires example values for approval
-    examples = list(tpl.example_variables) if tpl.example_variables else []
-    if not examples and tpl.variable_definitions:
-        examples = [str(v.get("example") or f"Sample {i+1}") for i, v in enumerate(tpl.variable_definitions)]
+    # Automatic Name Formatter: Convert human titles like 'Staff Timing Update 2026' into 'staff_timing_update_2026'
+    import re
+    clean_name = re.sub(r'[^a-z0-9_]', '', tpl.name.lower().strip().replace(' ', '_').replace('-', '_'))
+    clean_name = re.sub(r'_+', '_', clean_name).strip('_')
+    if not clean_name:
+        clean_name = f"template_{int(time.time())}"
 
-    if examples and len(examples) > 0:
+    # Automatic Sample Values (Zero Effort for the Client)
+    # Detect all variables {{1}}, {{2}}... and guarantee realistic sample values are supplied for Meta approval
+    body_matches = re.findall(r'\{\{(\d+)\}\}', tpl.body_text)
+    if body_matches:
+        num_vars = len(set(body_matches))
+        default_samples = [
+            "Ahmed Raza",
+            "Office Timings Update",
+            "Thursday working hours will conclude at 2:00 PM.",
+            "Thursday at 10:00 AM",
+            "Operations Head Office",
+            "Staff General Notice"
+        ]
+        
+        final_examples = []
+        for i in range(num_vars):
+            var_idx = i + 1
+            ex_val = None
+            if tpl.example_variables and i < len(tpl.example_variables) and tpl.example_variables[i]:
+                ex_val = str(tpl.example_variables[i]).strip()
+            elif tpl.variable_definitions:
+                for vd in tpl.variable_definitions:
+                    if vd.get("index") == var_idx and vd.get("example"):
+                        ex_val = str(vd["example"]).strip()
+                        break
+            
+            if not ex_val:
+                ex_val = default_samples[i] if i < len(default_samples) else f"Sample Value {var_idx}"
+            final_examples.append(ex_val)
+
         body_component["example"] = {
-            "body_text": [examples]
+            "body_text": [final_examples]
         }
     components.append(body_component)
 
@@ -417,7 +448,7 @@ def create_template(tpl: TemplateCreateRequest):
         })
 
     payload = {
-        "name": tpl.name.lower().replace(" ", "_"),
+        "name": clean_name,
         "category": tpl.category.upper(),
         "components": components,
         "language": tpl.language
@@ -438,7 +469,7 @@ def create_template(tpl: TemplateCreateRequest):
             # Record audit trail of submission
             now = datetime.utcnow()
             audit_logs = load_json(AUDIT_FILE, {})
-            tpl_clean_name = tpl.name.lower().replace(" ", "_")
+            tpl_clean_name = clean_name
             audit_logs[tpl_clean_name] = {
                 "name": tpl_clean_name,
                 "category": tpl.category.upper(),

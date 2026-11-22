@@ -1113,22 +1113,50 @@ function setupTemplateModal() {
   const btnClose = document.getElementById('btnCloseModal');
   const btnCancel = document.getElementById('btnCancelModal');
   const btnSubmit = document.getElementById('btnSubmitTemplateToMeta');
+  const nameInput = document.getElementById('tplNameInput');
+  const namePreview = document.getElementById('tplMetaNamePreview');
   const bodyInput = document.getElementById('tplBodyInput');
   const varsContainer = document.getElementById('tplDefinedVarsContainer');
   const varsBadge = document.getElementById('tplVarsCountBadge');
   const previewText = document.getElementById('tplLivePreviewText');
   const btnAddVar = document.getElementById('btnAddVariableBtn');
 
-  // Local state holding user-defined label & example for each variable number
+  // Automatic Name Formatter helper
+  function formatMetaTemplateName(raw) {
+    if (!raw) return '';
+    return raw
+      .toLowerCase()
+      .trim()
+      .replace(/[\s\-]+/g, '_')
+      .replace(/[^a-z0-9_]/g, '')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '');
+  }
+
+  // Live Auto-formatting of Template Name
+  if (nameInput) {
+    nameInput.addEventListener('input', () => {
+      const clean = formatMetaTemplateName(nameInput.value);
+      if (namePreview) {
+        if (clean) {
+          namePreview.textContent = `Meta ID: ${clean}`;
+          namePreview.style.display = 'inline-block';
+        } else {
+          namePreview.style.display = 'none';
+        }
+      }
+    });
+  }
+
+  // Local state holding variable labels & pre-configured automatic Meta sample values
   let definedVarsState = {};
 
-  // Default suggested configurations
   const defaultVarConfigs = [
     { label: "Recipient / Staff Name", example: "Ahmed Raza" },
     { label: "Announcement Topic", example: "Office Timings Update" },
     { label: "Notice Details", example: "Thursday working hours will conclude at 2:00 PM." },
     { label: "Date / Time", example: "Thursday at 10:00 AM" },
-    { label: "Location / Department", example: "Operations Head Office" }
+    { label: "Department / Location", example: "Operations Head Office" }
   ];
 
   function getDetectedVariables() {
@@ -1157,7 +1185,7 @@ function setupTemplateModal() {
     const detected = getDetectedVariables();
     detected.forEach(num => {
       const cur = definedVarsState[num] || {};
-      const exVal = cur.example || `[Sample ${num}]`;
+      const exVal = cur.example || (defaultVarConfigs[num - 1] ? defaultVarConfigs[num - 1].example : `Sample ${num}`);
       const regex = new RegExp(`\\{\\{${num}\\}\\}`, 'g');
       text = text.replace(regex, `<span style="background: #fef08a; color: #854d0e; padding: 1px 4px; border-radius: 3px; font-weight: 600;">${exVal}</span>`);
     });
@@ -1176,7 +1204,7 @@ function setupTemplateModal() {
     if (detected.length === 0) {
       varsContainer.innerHTML = `
         <div style="font-size: 12px; color: #64748b; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 10px; text-align: center;">
-          No dynamic variables in text. Click <b>"+ Add Variable"</b> or quick buttons above to personalize with recipient name, details, etc.
+          No dynamic variables in text. (Standard plain text templates require zero variables and are approved instantly!)
         </div>
       `;
       updateLivePreview();
@@ -1186,8 +1214,8 @@ function setupTemplateModal() {
     varsContainer.innerHTML = '';
 
     detected.forEach((num, idx) => {
+      const fallback = defaultVarConfigs[idx] || { label: `Parameter ${num}`, example: `Sample Value ${num}` };
       if (!definedVarsState[num]) {
-        const fallback = defaultVarConfigs[idx] || { label: `Variable ${num}`, example: `Sample Value ${num}` };
         definedVarsState[num] = {
           label: fallback.label,
           example: fallback.example
@@ -1196,19 +1224,22 @@ function setupTemplateModal() {
 
       const cur = definedVarsState[num];
       const row = document.createElement('div');
-      row.style.cssText = 'display: flex; gap: 8px; align-items: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;';
+      row.style.cssText = 'display: flex; gap: 10px; align-items: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px;';
 
       row.innerHTML = `
         <div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #008c44; font-family: monospace; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 6px; white-space: nowrap;">
           {{${num}}}
         </div>
         <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
-          <label style="font-size: 10px; font-weight: 700; color: #64748b;">Variable Name / Label</label>
-          <input type="text" class="form-input var-label-field" data-num="${num}" value="${cur.label || ''}" placeholder="e.g. Staff Name" style="font-size: 12px; padding: 5px 8px;">
+          <label style="font-size: 10px; font-weight: 700; color: #64748b;">Variable Purpose / Label</label>
+          <input type="text" class="form-input var-label-field" data-num="${num}" value="${cur.label || fallback.label}" placeholder="e.g. Staff Name" style="font-size: 12px; padding: 5px 8px;">
         </div>
         <div style="flex: 1.2; display: flex; flex-direction: column; gap: 2px;">
-          <label style="font-size: 10px; font-weight: 700; color: #64748b;">Sample Value (for Meta Approval)</label>
-          <input type="text" class="form-input var-example-field" data-num="${num}" value="${cur.example || ''}" placeholder="e.g. Ahmed Raza" style="font-size: 12px; padding: 5px 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label style="font-size: 10px; font-weight: 700; color: #64748b;">Meta Approval Sample</label>
+            <span style="font-size: 10px; color: #059669; font-weight: 600;">✓ Auto-configured</span>
+          </div>
+          <input type="text" class="form-input var-example-field" data-num="${num}" value="${cur.example || fallback.example}" placeholder="e.g. Ahmed Raza" style="font-size: 12px; padding: 5px 8px; background: #f8fafc;">
         </div>
       `;
 
@@ -1297,36 +1328,33 @@ function setupTemplateModal() {
 
   if (btnSubmit) {
     btnSubmit.addEventListener('click', async () => {
-      const name = document.getElementById('tplNameInput').value.trim();
+      const rawName = nameInput ? nameInput.value.trim() : '';
       const cat = document.getElementById('tplCategorySelect').value;
       const lang = document.getElementById('tplLangSelect').value;
       const header = document.getElementById('tplHeaderInput').value.trim();
-      const body = bodyInput.value.trim();
+      const body = bodyInput ? bodyInput.value.trim() : '';
       const footer = document.getElementById('tplFooterInput').value.trim();
 
-      if (!name || !body) {
-        alert('Please fill out the Template Name and Body text.');
+      if (!rawName || !body) {
+        alert('Please enter a Template Name and Body text.');
         return;
       }
 
-      if (!/^[a-z0-9_]+$/.test(name)) {
-        alert('Template name must contain only lowercase letters, numbers, and underscores (e.g. staff_monthly_notice).');
-        return;
-      }
+      // Automatic Name Formatter: Convert 'Staff Timing Update 2026' into 'staff_timing_update_2026'
+      const cleanName = formatMetaTemplateName(rawName) || `template_${Date.now()}`;
 
+      // Automatic Sample Values: Gather or supply default Meta approval samples
       const detected = getDetectedVariables();
       const variableDefs = [];
       const examples = [];
 
-      for (const num of detected) {
+      for (let i = 0; i < detected.length; i++) {
+        const num = detected[i];
         const cur = definedVarsState[num] || {};
-        const label = cur.label || `Parameter ${num}`;
-        const ex = (cur.example || '').trim();
-
-        if (!ex) {
-          alert(`Please provide a sample value for Variable {{${num}}} (${label}). Meta requires example values to approve templates.`);
-          return;
-        }
+        const fallback = defaultVarConfigs[i] || { label: `Parameter ${num}`, example: `Sample Value ${num}` };
+        
+        const label = cur.label || fallback.label;
+        const ex = (cur.example && cur.example.trim()) ? cur.example.trim() : fallback.example;
 
         variableDefs.push({
           index: num,
@@ -1344,7 +1372,7 @@ function setupTemplateModal() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: name,
+            name: cleanName,
             category: cat,
             language: lang,
             header_text: header || null,
@@ -1357,7 +1385,7 @@ function setupTemplateModal() {
 
         const data = await res.json();
         if (data.success) {
-          alert('Template submitted to Meta successfully! Approval usually takes 1-5 minutes.');
+          alert(`Template "${cleanName}" submitted to Meta successfully! Approval usually takes 1-5 minutes.`);
           modal.style.display = 'none';
           loadTemplates();
           loadTemplatesTable();

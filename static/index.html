@@ -663,8 +663,12 @@
 
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <div class="form-group">
-          <label class="form-label">Template Name (lowercase, underscores only)</label>
-          <input type="text" id="tplNameInput" class="form-input" placeholder="e.g. staff_monthly_notice">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="form-label" style="margin-bottom: 0;">Template Name</label>
+            <span id="tplMetaNamePreview" style="font-size: 11px; font-family: monospace; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 4px; display: none;"></span>
+          </div>
+          <input type="text" id="tplNameInput" class="form-input" placeholder="e.g. Staff Timing Update 2026">
+          <small style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Type naturally — automatically formatted for Meta WhatsApp in the background.</small>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
@@ -718,7 +722,7 @@
             </label>
             <span id="tplVarsCountBadge" style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 10px; font-weight: 700;">0 Variables</span>
           </div>
-          <p style="font-size: 11px; color: #64748b; margin-bottom: 8px;">Define a human-friendly name and sample value for each variable. Sample values are required by Meta for approval.</p>
+          <p style="font-size: 11px; color: #64748b; margin-bottom: 8px;">Meta approval sample values are <b>automatically supplied in the background</b> with zero manual effort required.</p>
 
           <div id="tplDefinedVarsContainer" style="display: flex; flex-direction: column; gap: 8px;">
             <!-- Populated dynamically as variables are typed or inserted -->
