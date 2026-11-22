@@ -5,6 +5,9 @@ let templatesList = [];
 let allChats = {};
 let allBroadcasts = [];
 let pollingInterval = null;
+let currentEmployeePage = 1;
+let totalEmployeesCount = 0;
+let cachedEmployeesAll = [];
 
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
@@ -14,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadBroadcasts();
   loadTemplates();
   setupBroadcastStudio();
+  setupEmployeesModule();
+  loadBroadcastRecipients();
   setupWhatsAppWebMessaging();
   setupTemplateModal();
 
@@ -97,6 +102,16 @@ function switchTab(tabName) {
       pageSubtitle.textContent = 'Design, preview, and dispatch official Meta-approved template announcements.';
     }
     loadBroadcasts();
+    loadBroadcastRecipients();
+  } else if (tabName === 'employees') {
+    document.getElementById('view-employees').style.display = 'block';
+    if (welcomeBlock) welcomeBlock.style.display = 'none';
+    if (titleBlock) {
+      titleBlock.style.display = 'block';
+      pageTitle.textContent = 'Employee Directory';
+      pageSubtitle.textContent = 'Manage staff members, sync WhatsApp broadcast recipients, and initiate conversations.';
+    }
+    loadEmployeesTable(currentEmployeePage);
   } else if (tabName === 'messages') {
     document.getElementById('view-messages').style.display = 'flex';
     if (welcomeBlock) welcomeBlock.style.display = 'none';
@@ -308,37 +323,173 @@ function setupBroadcastStudio() {
     select.addEventListener('change', updateTemplateVariablesAndPreview);
   }
 
-  // Recipient pill selection toggles
+  // Recipient pill selection toggles (Simplified: Everyone, By Department, Select Employee)
   const pillAll = document.getElementById('pillAll');
   const pillDept = document.getElementById('pillDept');
-  const pillCustom = document.getElementById('pillCustom');
+  const pillEmployee = document.getElementById('pillEmployee');
   const deptWrap = document.getElementById('deptSelectorWrap');
-  const phoneWrap = document.getElementById('customPhoneWrap');
+  const employeeWrap = document.getElementById('employeeSelectorWrap');
+  const btnUnselectEmp = document.getElementById('btnUnselectEmployee');
+  const btnUnselectDept = document.getElementById('btnUnselectDept');
 
-  function setRecipientMode(mode) {
-    [pillAll, pillDept, pillCustom].forEach(p => p && p.classList.remove('active'));
+  window.setRecipientMode = function(mode) {
+    [pillAll, pillDept, pillEmployee].forEach(p => p && p.classList.remove('active'));
     if (deptWrap) deptWrap.style.display = 'none';
-    if (phoneWrap) phoneWrap.style.display = 'none';
+    if (employeeWrap) employeeWrap.style.display = 'none';
 
-    if (mode === 'all') {
-      if (pillAll) pillAll.classList.add('active');
-    } else if (mode === 'department') {
+    if (mode === 'department') {
       if (pillDept) pillDept.classList.add('active');
       if (deptWrap) deptWrap.style.display = 'block';
-    } else if (mode === 'custom') {
-      if (pillCustom) pillCustom.classList.add('active');
-      if (phoneWrap) phoneWrap.style.display = 'block';
+    } else if (mode === 'employee') {
+      if (pillEmployee) pillEmployee.classList.add('active');
+      if (employeeWrap) employeeWrap.style.display = 'block';
+      syncSelectedEmployeeWithTemplate();
+    } else {
+      // Default: 'all' (Everyone)
+      if (pillAll) pillAll.classList.add('active');
+      const empSelect = document.getElementById('employeeSelectDropdown');
+      if (empSelect) empSelect.value = '';
+      resetRecipientVariableToDefault();
     }
+  };
+
+  // Toggle selection: clicking an active pill unselects it and returns to Everyone
+  if (pillAll) {
+    pillAll.addEventListener('click', () => setRecipientMode('all'));
+  }
+  if (pillDept) {
+    pillDept.addEventListener('click', () => {
+      if (pillDept.classList.contains('active')) {
+        setRecipientMode('all'); // Unselect
+      } else {
+        setRecipientMode('department');
+      }
+    });
+  }
+  if (pillEmployee) {
+    pillEmployee.addEventListener('click', () => {
+      if (pillEmployee.classList.contains('active')) {
+        setRecipientMode('all'); // Unselect
+      } else {
+        setRecipientMode('employee');
+      }
+    });
   }
 
-  if (pillAll) pillAll.addEventListener('click', () => setRecipientMode('all'));
-  if (pillDept) pillDept.addEventListener('click', () => setRecipientMode('department'));
-  if (pillCustom) pillCustom.addEventListener('click', () => setRecipientMode('custom'));
+  // Quick Unselect buttons
+  if (btnUnselectEmp) {
+    btnUnselectEmp.addEventListener('click', () => setRecipientMode('all'));
+  }
+  if (btnUnselectDept) {
+    btnUnselectDept.addEventListener('click', () => setRecipientMode('all'));
+  }
+
+  const empSelect = document.getElementById('employeeSelectDropdown');
+  if (empSelect) {
+    empSelect.addEventListener('change', () => {
+      if (!empSelect.value) {
+        setRecipientMode('all');
+      } else {
+        syncSelectedEmployeeWithTemplate();
+      }
+    });
+  }
 
   // Send Broadcast button
   const sendBtn = document.getElementById('sendBroadcastBtn');
   if (sendBtn) {
     sendBtn.addEventListener('click', handleSendBroadcast);
+  }
+}
+
+// Reset first parameter (Recipient / Staff Name) when unselecting back to Everyone
+function resetRecipientVariableToDefault() {
+  const select = document.getElementById('broadcastTemplateSelect');
+  const selectedName = select ? select.value : 'staff_official_notice';
+  const defaults = {
+    staff_official_notice: "Ahmed Raza",
+    general_announcement: "Team",
+    system_maintenance: "Friday 12:00 AM to 4:00 AM",
+    hr_update: "All Staff"
+  };
+  const defaultVal = defaults[selectedName] || "Staff";
+  const firstVarInput = document.querySelector('.var-field[data-tag="{{1}}"]');
+  if (firstVarInput) {
+    firstVarInput.value = defaultVal;
+    renderLivePreview();
+  }
+}
+
+// Dynamically load and synchronize employees into broadcast recipient selection
+async function loadBroadcastRecipients() {
+  try {
+    const res = await fetch('/api/employees/all');
+    if (!res.ok) return;
+    const data = await res.json();
+    cachedEmployeesAll = data.employees || [];
+
+    // Populate Broadcast Employee Selector with an Unselect / Choose option
+    const empSelect = document.getElementById('employeeSelectDropdown');
+    if (empSelect) {
+      empSelect.innerHTML = '<option value="">-- Choose an Employee (or click Unselect) --</option>';
+      cachedEmployeesAll.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.setAttribute('data-name', e.name);
+        opt.setAttribute('data-phone', e.phone);
+        opt.setAttribute('data-dept', e.department);
+        opt.textContent = `${e.name} (${e.phone}) • ${e.department}`;
+        empSelect.appendChild(opt);
+      });
+    }
+
+    // Populate Department Selectors (Broadcast and Directory Filter)
+    const depts = data.departments || [];
+    const deptSelect = document.getElementById('deptSelectDropdown');
+    if (deptSelect && depts.length > 0) {
+      deptSelect.innerHTML = '';
+      depts.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = `${d} Department`;
+        deptSelect.appendChild(opt);
+      });
+    }
+
+    const empFilterDept = document.getElementById('employeeFilterDept');
+    if (empFilterDept && depts.length > 0) {
+      const cur = empFilterDept.value;
+      empFilterDept.innerHTML = '<option value="All">All Departments</option>';
+      depts.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d;
+        empFilterDept.appendChild(opt);
+      });
+      if (cur) empFilterDept.value = cur;
+    }
+  } catch (err) {
+    console.error('Error loading broadcast recipients:', err);
+  }
+}
+
+function syncSelectedEmployeeWithTemplate() {
+  const empSelect = document.getElementById('employeeSelectDropdown');
+  if (!empSelect) return;
+  const selectedOpt = empSelect.querySelector('option:checked');
+  if (!selectedOpt || !empSelect.value) {
+    resetRecipientVariableToDefault();
+    return;
+  }
+
+  const empName = selectedOpt.getAttribute('data-name');
+  if (!empName) return;
+
+  // Auto-fill recipient/staff name variable {{1}} with employee's name
+  const firstVarInput = document.querySelector('.var-field[data-tag="{{1}}"]');
+  if (firstVarInput) {
+    firstVarInput.value = empName;
+    renderLivePreview();
   }
 }
 
@@ -477,15 +628,26 @@ async function handleSendBroadcast() {
 
   let filterValue = null;
   let testNumber = null;
+  let targetDisplay = 'Everyone';
 
   if (recipientType === 'department') {
     filterValue = document.getElementById('deptSelectDropdown').value;
-  } else if (recipientType === 'custom') {
-    testNumber = document.getElementById('customPhoneInput').value.trim();
-    if (!testNumber) {
-      alert('Please enter a valid WhatsApp test phone number (e.g. +923306579717)');
+    targetDisplay = `Department: ${filterValue}`;
+  } else if (recipientType === 'employee') {
+    const empSelect = document.getElementById('employeeSelectDropdown');
+    filterValue = empSelect ? empSelect.value : null;
+    if (!filterValue) {
+      alert('Please choose an employee from the dropdown or click Unselect.');
       return;
     }
+    const selectedOpt = empSelect ? empSelect.querySelector('option:checked') : null;
+    const empName = selectedOpt ? selectedOpt.getAttribute('data-name') : 'Selected Employee';
+    const empPhone = selectedOpt ? selectedOpt.getAttribute('data-phone') : null;
+    testNumber = empPhone;
+    targetDisplay = `${empName} (${empPhone})`;
+  } else {
+    // Everyone
+    targetDisplay = 'Everyone (All Staff)';
   }
 
   const varInputs = document.querySelectorAll('.var-field');
@@ -516,7 +678,10 @@ async function handleSendBroadcast() {
 
     const data = await res.json();
     if (res.ok) {
-      alert(`Broadcast Dispatched Successfully!\n\nTarget: ${recipientType === 'custom' ? testNumber : (recipientType === 'department' ? filterValue : 'Everyone')}\nStatus: Delivered via Meta Cloud API.`);
+      const confirmed = confirm(`Broadcast Dispatched Successfully!\n\nTarget: ${targetDisplay}\nTemplate: ${selectedTemplate}\nStatus: Delivered via Meta Cloud API.\n\nWould you like to open live chat with this recipient now?`);
+      if (confirmed && testNumber) {
+        openChatWithEmployee(testNumber, targetDisplay.split(' (')[0]);
+      }
       loadBroadcasts();
       loadMetrics();
     } else {
@@ -850,3 +1015,251 @@ function setupTemplateModal() {
     });
   }
 }
+
+
+// --- 6. EMPLOYEE DIRECTORY & SYNC ---
+function setupEmployeesModule() {
+  const searchInput = document.getElementById('employeeSearchInput');
+  const deptSelect = document.getElementById('employeeFilterDept');
+  const btnPrev = document.getElementById('btnPrevPageEmployees');
+  const btnNext = document.getElementById('btnNextPageEmployees');
+
+  let debounceTimer = null;
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        currentEmployeePage = 1;
+        loadEmployeesTable(1);
+      }, 300);
+    });
+  }
+
+  if (deptSelect) {
+    deptSelect.addEventListener('change', () => {
+      currentEmployeePage = 1;
+      loadEmployeesTable(1);
+    });
+  }
+
+  if (btnPrev) {
+    btnPrev.addEventListener('click', () => {
+      if (currentEmployeePage > 1) {
+        currentEmployeePage--;
+        loadEmployeesTable(currentEmployeePage);
+      }
+    });
+  }
+
+  if (btnNext) {
+    btnNext.addEventListener('click', () => {
+      const maxPages = Math.ceil(totalEmployeesCount / 50) || 1;
+      if (currentEmployeePage < maxPages) {
+        currentEmployeePage++;
+        loadEmployeesTable(currentEmployeePage);
+      }
+    });
+  }
+
+  // Add Employee Modal
+  const modal = document.getElementById('addEmployeeModal');
+  const btnOpen = document.getElementById('btnOpenAddEmployeeModal');
+  const btnClose = document.getElementById('btnCloseAddEmpModal');
+  const btnCancel = document.getElementById('btnCancelAddEmp');
+  const btnSave = document.getElementById('btnSaveNewEmployee');
+
+  if (btnOpen) btnOpen.addEventListener('click', () => {
+    document.getElementById('addEmpName').value = '';
+    document.getElementById('addEmpPhone').value = '';
+    document.getElementById('addEmpDesignation').value = 'Staff';
+    modal.style.display = 'flex';
+  });
+
+  if (btnClose) btnClose.addEventListener('click', () => modal.style.display = 'none');
+  if (btnCancel) btnCancel.addEventListener('click', () => modal.style.display = 'none');
+
+  if (btnSave) {
+    btnSave.addEventListener('click', async () => {
+      const name = document.getElementById('addEmpName').value.trim();
+      const phone = document.getElementById('addEmpPhone').value.trim();
+      const dept = document.getElementById('addEmpDept').value;
+      const desig = document.getElementById('addEmpDesignation').value.trim();
+
+      if (!name || !phone || !dept) {
+        alert('Please fill out Name, WhatsApp Phone Number, and Department.');
+        return;
+      }
+
+      btnSave.disabled = true;
+      btnSave.innerHTML = '<span>Saving Employee...</span>';
+
+      try {
+        const res = await fetch('/api/employees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name,
+            phone: phone,
+            department: dept,
+            designation: desig || 'Staff',
+            location: 'Muscat HQ'
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          modal.style.display = 'none';
+          alert(`Employee "${name}" has been added and synced with WhatsApp Broadcasts!`);
+          currentEmployeePage = 1;
+          loadEmployeesTable(1);
+          loadBroadcastRecipients();
+        } else {
+          alert(`Error saving employee: ${data.detail || data.message || 'Check inputs'}`);
+        }
+      } catch (err) {
+        alert(`Error: ${err.message}`);
+      } finally {
+        btnSave.disabled = false;
+        btnSave.innerHTML = '<i data-lucide="check" style="width: 14px; height: 14px;"></i><span>Save Employee</span>';
+        initIcons();
+      }
+    });
+  }
+}
+
+async function loadEmployeesTable(page = 1) {
+  try {
+    const searchInput = document.getElementById('employeeSearchInput');
+    const deptSelect = document.getElementById('employeeFilterDept');
+    const tbody = document.getElementById('employeesTableBody');
+    const pageInfo = document.getElementById('employeePaginationInfo');
+    const pageCurrent = document.getElementById('employeePageCurrent');
+    const btnPrev = document.getElementById('btnPrevPageEmployees');
+    const btnNext = document.getElementById('btnNextPageEmployees');
+
+    const search = searchInput ? encodeURIComponent(searchInput.value.trim()) : '';
+    const dept = deptSelect ? encodeURIComponent(deptSelect.value) : 'All';
+
+    let url = `/api/employees?page=${page}&limit=50`;
+    if (dept && dept !== 'All') url += `&department=${dept}`;
+    if (search) url += `&search=${search}`;
+
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    totalEmployeesCount = data.total || 0;
+    currentEmployeePage = data.page || page;
+    const limit = data.limit || 50;
+    const maxPages = Math.ceil(totalEmployeesCount / limit) || 1;
+
+    if (pageInfo) {
+      const start = totalEmployeesCount === 0 ? 0 : (currentEmployeePage - 1) * limit + 1;
+      const end = Math.min(currentEmployeePage * limit, totalEmployeesCount);
+      pageInfo.textContent = `Showing ${start} to ${end} of ${totalEmployeesCount.toLocaleString()} employees`;
+    }
+
+    if (pageCurrent) {
+      pageCurrent.textContent = `Page ${currentEmployeePage} of ${maxPages}`;
+    }
+
+    if (btnPrev) btnPrev.disabled = currentEmployeePage <= 1;
+    if (btnNext) btnNext.disabled = currentEmployeePage >= maxPages;
+
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const list = data.employees || [];
+    if (list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 28px;">No matching employees found.</td></tr>`;
+      return;
+    }
+
+    list.forEach(emp => {
+      const tr = document.createElement('tr');
+      const isFromMessages = (emp.id || '').includes('MSG');
+      tr.innerHTML = `
+        <td style="font-family: monospace; font-size: 11px; font-weight: 600; color: #475569;">
+          ${emp.id}
+          ${isFromMessages ? '<span style="margin-left: 4px; font-size: 9px; background: #dcfce7; color: #047857; padding: 1px 4px; border-radius: 3px; font-weight: 700;">LIVE CHAT</span>' : ''}
+        </td>
+        <td style="font-weight: 700; color: #0f172a;">${emp.name}</td>
+        <td style="color: #00a651; font-weight: 600; font-family: monospace; font-size: 12px;">${emp.phone}</td>
+        <td><span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${emp.department || 'General'}</span></td>
+        <td style="color: #64748b; font-size: 12px;">${emp.designation || 'Staff'}</td>
+        <td style="color: #64748b; font-size: 12px;">${emp.location || 'Muscat HQ'}</td>
+        <td><span class="status-badge active"><span class="badge-dot"></span>Active</span></td>
+        <td>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn-action-view" onclick="selectEmployeeForBroadcast('${emp.id}')" title="Send WhatsApp broadcast announcement to this employee" style="padding: 4px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="megaphone" style="width: 12px; height: 12px;"></i>
+              <span>Broadcast</span>
+            </button>
+            <button type="button" class="btn-action-view" onclick="openChatWithEmployee('${emp.phone}', '${emp.name.replace(/'/g, "\\'")}')" title="Open 1-on-1 WhatsApp chat with this employee" style="padding: 4px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="message-square" style="width: 12px; height: 12px;"></i>
+              <span>Chat</span>
+            </button>
+            <button type="button" class="btn-action-view" onclick="deleteEmployee('${emp.id}', '${emp.name.replace(/'/g, "\\'")}')" title="Delete employee" style="padding: 4px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; color: #ef4444; border-color: #fecaca; background: #fff5f5;">
+              <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
+              <span>Delete</span>
+            </button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    initIcons();
+  } catch (err) {
+    console.error('Error loading employees table:', err);
+  }
+}
+
+// Global helper: Select an employee and sync them into Broadcast Studio
+window.selectEmployeeForBroadcast = async function(empId) {
+  switchTab('broadcasts');
+  if (window.setRecipientMode) {
+    window.setRecipientMode('employee');
+  }
+
+  // Ensure dropdown is loaded
+  await loadBroadcastRecipients();
+
+  const empSelect = document.getElementById('employeeSelectDropdown');
+  if (empSelect) {
+    empSelect.value = empId;
+    syncSelectedEmployeeWithTemplate();
+  }
+};
+
+// Global helper: Open live chat with an employee
+window.openChatWithEmployee = function(phone, name) {
+  if (!phone) return;
+  activePhone = phone;
+  switchTab('messages');
+  loadActiveChat(phone, true);
+  loadChats(true);
+};
+
+// Global helper: Delete an employee
+window.deleteEmployee = async function(empId, empName) {
+  if (!empId) return;
+  const confirmed = confirm(`Are you sure you want to delete employee "${empName || empId}"?`);
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`/api/employees/${encodeURIComponent(empId)}`, {
+      method: 'DELETE'
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      alert(`Employee "${empName || empId}" deleted successfully.`);
+      loadEmployeesTable(currentEmployeePage);
+      loadBroadcastRecipients();
+    } else {
+      alert(`Error deleting employee: ${data.message || data.detail || 'Could not delete'}`);
+    }
+  } catch (err) {
+    alert(`Delete Error: ${err.message}`);
+  }
+};

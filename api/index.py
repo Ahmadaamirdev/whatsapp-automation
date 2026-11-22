@@ -87,7 +87,14 @@ async def vercel_path_rewrite_middleware(request: Request, call_next):
         matched = request.headers.get("x-matched-path") or request.headers.get("x-forwarded-uri")
         if matched and matched not in ["/api/index.py", "/api/index"]:
             request.scope["path"] = matched.split("?")[0]
-    return await call_next(request)
+    response = await call_next(request)
+    # Ensure browsers don't cache stale frontend bundles during updates
+    req_path = request.url.path
+    if req_path.endswith(".js") or req_path.endswith(".html") or req_path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 # Helper functions for data storage (persists to MongoDB Atlas with seamless local JSON /tmp fallback)
 def load_json(filename: str, default: Any = None):
@@ -162,6 +169,12 @@ def save_json(filename: str, data: Any):
                         doc["_id"] = name
                         doc["name"] = name
                         db["template_audit"].replace_one({"_id": name}, doc, upsert=True)
+            elif filename == "employees.json":
+                if isinstance(data, list):
+                    for emp in data[:50]:
+                        e_id = emp.get("id") or emp.get("phone")
+                        if e_id:
+                            db["employees"].replace_one({"id": e_id}, emp, upsert=True)
         except Exception as e:
             print(f"[MONGODB WRITE ERROR] {filename}: {e}")
 
@@ -439,7 +452,84 @@ def create_template(tpl: TemplateCreateRequest):
         return {"success": False, "error": str(e)}
 
 
-# --- 4. EMPLOYEES DIRECTORY ---
+# --- 4. EMPLOYEES DIRECTORY & SYNC WITH MESSAGES ---
+DELETED_EMPLOYEES_FILE = "deleted_employees.json"
+
+def get_deleted_employee_ids():
+    deleted = load_json(DELETED_EMPLOYEES_FILE, [])
+    return set(deleted) if isinstance(deleted, list) else set()
+
+def record_deleted_employee(emp_id: str, phone: Optional[str] = None):
+    deleted = list(get_deleted_employee_ids())
+    for item in [emp_id, phone]:
+        if item and item not in deleted:
+            deleted.append(item)
+    save_json(DELETED_EMPLOYEES_FILE, deleted)
+    if db is not None:
+        try:
+            for item in [emp_id, phone]:
+                if item:
+                    db["deleted_employees"].replace_one({"id": item}, {"id": item}, upsert=True)
+                    db["employees"].delete_many({"$or": [{"id": item}, {"phone": item}]})
+        except Exception as e:
+            print(f"[MONGODB ERROR] recording deleted employee: {e}")
+
+def get_merged_employees():
+    """Returns all employees, automatically merging contacts from messages as employees."""
+    deleted_ids = get_deleted_employee_ids()
+    raw_employees = load_json("employees.json", [])
+    employees = [e for e in raw_employees if e.get("id") not in deleted_ids and e.get("phone") not in deleted_ids]
+
+    existing_clean_phones = set()
+    for e in employees:
+        p = e.get("phone")
+        if p:
+            existing_clean_phones.add(p.replace("+", "").replace(" ", "").replace("-", "").strip())
+
+    messages_db = load_json("messages.json", {})
+    added_from_messages = []
+    
+    idx = 1
+    for phone, chat in messages_db.items():
+        if phone in deleted_ids:
+            continue
+        clean_p = phone.replace("+", "").replace(" ", "").replace("-", "").strip()
+        if not clean_p or clean_p in existing_clean_phones or clean_p in deleted_ids:
+            continue
+
+        raw_name = chat.get("name", "").strip()
+        last_msg = (chat.get("last_message") or "").strip()
+        
+        if not raw_name or raw_name.lower() in ["employee", "staff"]:
+            if "emaad" in last_msg.lower():
+                name = "Emaad"
+            else:
+                name = f"Staff ({phone})"
+        else:
+            name = raw_name
+
+        dept = "Operations"
+        role = chat.get("role", "")
+        if "•" in role:
+            candidate_dept = role.split("•")[-1].strip()
+            if candidate_dept and candidate_dept != "WhatsApp Contact":
+                dept = candidate_dept
+
+        new_emp = {
+            "id": f"EMP-MSG-{idx:03d}",
+            "name": name,
+            "phone": phone,
+            "department": dept,
+            "designation": "Staff",
+            "location": "Muscat HQ",
+            "status": "Active"
+        }
+        added_from_messages.append(new_emp)
+        existing_clean_phones.add(clean_p)
+        idx += 1
+
+    return added_from_messages + employees
+
 @app.get("/api/employees")
 @app.get("/employees")
 def get_employees(
@@ -448,7 +538,7 @@ def get_employees(
     department: Optional[str] = None,
     search: Optional[str] = None
 ):
-    employees = load_json("employees.json", [])
+    employees = get_merged_employees()
     
     filtered = employees
     if department and department != "All":
@@ -476,6 +566,92 @@ def get_employees(
         "employees": paginated
     }
 
+@app.get("/api/employees/all")
+@app.get("/employees/all")
+def get_all_employees():
+    employees = get_merged_employees()
+    departments = sorted(list({e.get("department") for e in employees if e.get("department")}))
+    return {
+        "total": len(employees),
+        "departments": departments,
+        "employees": [
+            {
+                "id": e.get("id"),
+                "name": e.get("name"),
+                "phone": e.get("phone"),
+                "department": e.get("department"),
+                "designation": e.get("designation", "Staff")
+            }
+            for e in employees
+        ]
+    }
+
+class EmployeeCreateRequest(BaseModel):
+    name: str
+    phone: str
+    department: str
+    designation: Optional[str] = "Staff"
+    location: Optional[str] = "Muscat HQ"
+
+@app.post("/api/employees")
+@app.post("/employees")
+def add_employee(req: EmployeeCreateRequest):
+    name = req.name.strip()
+    phone = req.phone.strip()
+    dept = req.department.strip()
+
+    if not name or not phone or not dept:
+        raise HTTPException(status_code=400, detail="Name, phone number, and department are required.")
+
+    # Format phone with leading +
+    clean_digits = "".join([c for c in phone if c.isdigit()])
+    formatted_phone = f"+{clean_digits}" if not phone.startswith("+") else phone
+
+    employees = load_json("employees.json", [])
+    new_id = f"EMP-{len(employees) + 1:04d}"
+    new_emp = {
+        "id": new_id,
+        "name": name,
+        "phone": formatted_phone,
+        "department": dept,
+        "designation": (req.designation or "Staff").strip(),
+        "location": (req.location or "Muscat HQ").strip(),
+        "status": "Active"
+    }
+
+    employees.insert(0, new_emp)
+    save_json("employees.json", employees)
+
+    if db is not None:
+        try:
+            db["employees"].replace_one({"phone": formatted_phone}, new_emp, upsert=True)
+        except Exception as e:
+            print(f"[MONGODB ERROR] saving employee: {e}")
+
+    return {
+        "success": True,
+        "employee": new_emp,
+        "message": f"Employee {name} added successfully!"
+    }
+
+@app.delete("/api/employees/{emp_id}")
+@app.delete("/employees/{emp_id}")
+def delete_employee(emp_id: str):
+    employees = load_json("employees.json", [])
+    target = next((e for e in employees if e.get("id") == emp_id or e.get("phone") == emp_id), None)
+    
+    # Remove from employees.json
+    new_employees = [e for e in employees if e.get("id") != emp_id and e.get("phone") != emp_id]
+    save_json("employees.json", new_employees)
+    
+    target_phone = target.get("phone") if target else (emp_id if emp_id.startswith("+") else None)
+    record_deleted_employee(emp_id, target_phone)
+    
+    return {
+        "success": True,
+        "message": f"Employee {emp_id} deleted successfully."
+    }
+
 
 # --- 5. BROADCASTS & OUTBOUND SENDER ---
 @app.get("/api/broadcasts")
@@ -489,14 +665,14 @@ class BroadcastSendRequest(BaseModel):
     template_language: str = "en_US"
     body_text: str
     variables: List[str] = []
-    recipient_type: str = "all"  # all, department, location, custom
+    recipient_type: str = "all"  # all, department, location, employee, custom
     recipient_filter_value: Optional[str] = None
     test_number: Optional[str] = None  # Send real message to this phone number
 
 @app.post("/api/broadcasts/send")
 @app.post("/broadcasts/send")
 def send_broadcast(req: BroadcastSendRequest):
-    employees = load_json("employees.json", [])
+    employees = get_merged_employees()
     broadcasts = load_json("broadcasts.json", [])
     
     # Filter target recipients
@@ -504,13 +680,19 @@ def send_broadcast(req: BroadcastSendRequest):
         recipients = [e for e in employees if e.get("department") == req.recipient_filter_value]
     elif req.recipient_type == "location" and req.recipient_filter_value:
         recipients = [e for e in employees if e.get("location") == req.recipient_filter_value]
+    elif req.recipient_type == "employee" and req.recipient_filter_value:
+        val = req.recipient_filter_value.strip()
+        matched = [e for e in employees if e.get("id") == val or e.get("phone") == val]
+        recipients = matched if matched else [e for e in employees if val in e.get("name", "")]
+        if not recipients:
+            recipients = employees[:1]
     else:
         recipients = employees
 
     recipient_count = len(recipients)
     now_str = datetime.now(PKT_TZ).strftime("%b %d, %Y • %I:%M %p")
     
-    # If a test phone number is provided or target is small, trigger real Meta WhatsApp API call
+    # If test phone or employee or small target, trigger real Meta WhatsApp API call
     real_dispatch_result = None
     target_phone = req.test_number or (recipients[0]["phone"] if recipients else None)
     
@@ -549,6 +731,18 @@ def send_broadcast(req: BroadcastSendRequest):
             real_dispatch_result = {"error": str(e)}
 
     # Record broadcast entry
+    if req.recipient_type == "all":
+        rec_filter = f"All Employees ({recipient_count})"
+    elif req.recipient_type == "department":
+        rec_filter = f"By Department ({req.recipient_filter_value})"
+    elif req.recipient_type == "employee":
+        emp_name = recipients[0].get("name", "Employee") if recipients else req.recipient_filter_value
+        rec_filter = f"Employee ({emp_name})"
+    elif req.recipient_type == "custom":
+        rec_filter = f"Custom ({target_phone})"
+    else:
+        rec_filter = f"By {req.recipient_type.title()} ({recipient_count})"
+
     new_broadcast = {
         "id": f"BC-{1000 + len(broadcasts) + 1}",
         "date": now_str,
@@ -557,7 +751,8 @@ def send_broadcast(req: BroadcastSendRequest):
         "template_name": req.template_name,
         "content": req.body_text,
         "recipients_count": recipient_count,
-        "recipient_filter": f"All Employees ({recipient_count})" if req.recipient_type == "all" else f"By {req.recipient_type.title()} ({recipient_count})",
+        "recipient_filter": rec_filter,
+        "recipient_phone": target_phone if req.recipient_type in ["employee", "custom"] else None,
         "status": "Completed",
         "delivered_pct": 98.2,
         "read_pct": 91.5,
@@ -571,7 +766,7 @@ def send_broadcast(req: BroadcastSendRequest):
     return {
         "success": True,
         "broadcast": new_broadcast,
-        "message": f"Broadcast successfully dispatched to {recipient_count} employees!"
+        "message": f"Broadcast successfully dispatched to {rec_filter}!"
     }
 
 
@@ -826,7 +1021,14 @@ def debug_mongodb():
 def get_root():
     index_file = STATIC_DIR / "index.html"
     if index_file.exists():
-        return FileResponse(str(index_file))
+        return FileResponse(
+            str(index_file),
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     return {"message": "Al Haditha WhatsApp System API is running"}
 
 if STATIC_DIR.exists():
