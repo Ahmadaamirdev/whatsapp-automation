@@ -44,27 +44,60 @@ SEED_DATA_DIR = next((p for p in possible_data_dirs if p.exists()), BASE_DIR / "
 IS_VERCEL = bool(os.getenv("VERCEL"))
 DATA_DIR = Path("/tmp/data") if IS_VERCEL else SEED_DATA_DIR
 
-# MongoDB Atlas Integration
-db = None
-if MONGODB_URI:
+# MongoDB Atlas Integration (Robust pool with auto-reconnection for serverless & local)
+_mongo_client = None
+_db = None
+
+def get_db():
+    global _mongo_client, _db
+    if not MONGODB_URI:
+        return None
+    if _db is not None:
+        try:
+            _db.command("ping")
+            return _db
+        except Exception:
+            _mongo_client = None
+            _db = None
+
     try:
         import certifi
         ca = certifi.where()
-        mongo_client = MongoClient(
+        _mongo_client = MongoClient(
             MONGODB_URI,
-            serverSelectionTimeoutMS=5000,
+            serverSelectionTimeoutMS=15000,
+            connectTimeoutMS=15000,
+            socketTimeoutMS=15000,
             tlsCAFile=ca,
-            tlsAllowInvalidCertificates=True
+            tlsAllowInvalidCertificates=True,
+            maxPoolSize=50,
+            retryWrites=True
         )
-        db = mongo_client["alhaditha_wa"]
+        _db = _mongo_client["alhaditha_wa"]
+        _db.command("ping")
         print("[MONGODB] Connected to MongoDB Atlas (database: alhaditha_wa)")
+        return _db
     except Exception as e:
         try:
-            mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000, tls=True)
-            db = mongo_client["alhaditha_wa"]
+            _mongo_client = MongoClient(
+                MONGODB_URI,
+                serverSelectionTimeoutMS=15000,
+                connectTimeoutMS=15000,
+                socketTimeoutMS=15000,
+                tls=True,
+                maxPoolSize=50,
+                retryWrites=True
+            )
+            _db = _mongo_client["alhaditha_wa"]
+            _db.command("ping")
+            print("[MONGODB] Connected to MongoDB Atlas (fallback TLS)")
+            return _db
         except Exception as e2:
-            print(f"[MONGODB ERROR] Connection failed: {e2}")
-            db = None
+            print(f"[MONGODB RECONNECT ERROR]: {e2}")
+            return None
+
+# Initial connection attempt
+db = get_db()
 
 app = FastAPI(
     title="Al-Haditha WhatsApp Announcement System",
@@ -98,19 +131,19 @@ async def vercel_path_rewrite_middleware(request: Request, call_next):
 
 # Helper functions for data storage (persists to MongoDB Atlas with seamless local JSON /tmp fallback)
 def load_json(filename: str, default: Any = None):
-    # 1. Check MongoDB first if connected
-    if db is not None:
+    database = get_db()
+    if database is not None:
         try:
             if filename == "employees.json":
-                docs = list(db["employees"].find({}, {"_id": 0}))
-                if docs:
+                docs = list(database["employees"].find({}, {"_id": 0}))
+                if docs or database["employees"].count_documents({}) == 0:
                     return docs
             elif filename == "broadcasts.json":
-                docs = list(db["broadcasts"].find({}, {"_id": 0}).sort("timestamp", -1))
-                if docs:
+                docs = list(database["broadcasts"].find({}, {"_id": 0}).sort("timestamp", -1))
+                if docs or database["broadcasts"].count_documents({}) == 0:
                     return docs
             elif filename == "messages.json":
-                docs = list(db["chats"].find({}))
+                docs = list(database["chats"].find({}))
                 res = {}
                 for d in docs:
                     phone = d.get("phone") or d.get("_id")
@@ -119,19 +152,18 @@ def load_json(filename: str, default: Any = None):
                         res[phone] = doc_clean
                 return res
             elif filename == AUDIT_FILE:
-                docs = list(db["template_audit"].find({}))
+                docs = list(database["template_audit"].find({}))
                 res = {}
                 for d in docs:
                     name = d.get("_id") or d.get("name")
                     if name:
                         doc_clean = {k: v for k, v in d.items() if k != "_id"}
                         res[name] = doc_clean
-                if res:
-                    return res
+                return res
         except Exception as e:
             print(f"[MONGODB READ ERROR] {filename}: {e}")
 
-    # 2. Local fallback
+    # Local fallback only when MongoDB is completely unreachable
     filepath = DATA_DIR / filename
     if not filepath.exists() and SEED_DATA_DIR.exists():
         seed_path = SEED_DATA_DIR / filename
@@ -147,49 +179,55 @@ def load_json(filename: str, default: Any = None):
         return default if default is not None else []
 
 def save_json(filename: str, data: Any):
-    # 1. Persist to MongoDB Atlas if connected
-    if db is not None:
+    database = get_db()
+    if database is not None:
         try:
             if filename == "broadcasts.json":
                 if isinstance(data, list):
+                    current_ids = [item.get("id") for item in data if item.get("id")]
+                    if current_ids:
+                        database["broadcasts"].delete_many({"id": {"$nin": current_ids}})
                     for item in data:
                         b_id = item.get("id") or item.get("timestamp")
-                        db["broadcasts"].replace_one({"id": b_id}, item, upsert=True)
+                        database["broadcasts"].replace_one({"id": b_id}, item, upsert=True)
             elif filename == "messages.json":
                 if isinstance(data, dict):
                     for phone, thread in data.items():
                         doc = dict(thread)
                         doc["_id"] = phone
                         doc["phone"] = phone
-                        db["chats"].replace_one({"_id": phone}, doc, upsert=True)
+                        database["chats"].replace_one({"_id": phone}, doc, upsert=True)
             elif filename == AUDIT_FILE:
                 if isinstance(data, dict):
                     for name, entry in data.items():
                         doc = dict(entry)
                         doc["_id"] = name
                         doc["name"] = name
-                        db["template_audit"].replace_one({"_id": name}, doc, upsert=True)
+                        database["template_audit"].replace_one({"_id": name}, doc, upsert=True)
             elif filename == "employees.json":
                 if isinstance(data, list):
-                    for emp in data[:50]:
+                    current_ids = [e.get("id") for e in data if e.get("id")]
+                    if current_ids:
+                        database["employees"].delete_many({"id": {"$nin": current_ids}})
+                    for emp in data:
                         e_id = emp.get("id") or emp.get("phone")
                         if e_id:
-                            db["employees"].replace_one({"id": e_id}, emp, upsert=True)
+                            database["employees"].replace_one({"id": e_id}, emp, upsert=True)
         except Exception as e:
             print(f"[MONGODB WRITE ERROR] {filename}: {e}")
 
-    # 2. Local fallback persistence
+    # Local persistence sync
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         filepath = DATA_DIR / filename
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-    except OSError:
-        tmp_dir = Path("/tmp/data")
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-        filepath = tmp_dir / filename
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        if not IS_VERCEL and SEED_DATA_DIR.exists():
+            seed_file = SEED_DATA_DIR / filename
+            with open(seed_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
 
 
 # --- 1. SYSTEM & META STATUS ---
@@ -406,9 +444,24 @@ def create_template(tpl: TemplateCreateRequest):
     if not clean_name:
         clean_name = f"template_{int(time.time())}"
 
+    # Automatic Variable Converter: Convert friendly named variables like {{Staff Name}} to Meta {{1}}, {{2}} format
+    raw_var_matches = re.findall(r'\{\{([^}]+)\}\}', tpl.body_text)
+    if raw_var_matches:
+        unique_tags = []
+        for t in raw_var_matches:
+            c_tag = t.strip()
+            if c_tag not in unique_tags:
+                unique_tags.append(c_tag)
+        
+        if any(not t.isdigit() for t in unique_tags):
+            conv_body = tpl.body_text
+            for idx, tag in enumerate(unique_tags):
+                conv_body = re.sub(r'\{\{\s*' + re.escape(tag) + r'\s*\}\}', f'{{{{{idx + 1}}}}}', conv_body)
+            body_component["text"] = conv_body
+
     # Automatic Sample Values (Zero Effort for the Client)
     # Detect all variables {{1}}, {{2}}... and guarantee realistic sample values are supplied for Meta approval
-    body_matches = re.findall(r'\{\{(\d+)\}\}', tpl.body_text)
+    body_matches = re.findall(r'\{\{(\d+)\}\}', body_component["text"])
     if body_matches:
         num_vars = len(set(body_matches))
         default_samples = [
@@ -708,6 +761,58 @@ class BroadcastSendRequest(BaseModel):
     recipient_filter_value: Optional[str] = None
     test_number: Optional[str] = None  # Send real message to this phone number
 
+def personalize_for_employee(variables: list, emp: dict, body_template: str = ""):
+    """Dynamically personalizes template variables and body text per recipient (n8n-style)."""
+    emp_name = emp.get("name") or "Staff Member"
+    emp_dept = emp.get("department") or "Staff"
+    emp_role = emp.get("role") or "Employee"
+    emp_phone = emp.get("phone") or ""
+    emp_loc = emp.get("location") or "Office"
+    today_str = datetime.now(PKT_TZ).strftime("%b %d, %Y")
+
+    token_map = {
+        "{name}": emp_name,
+        "{Name}": emp_name,
+        "{employee_name}": emp_name,
+        "{Employee Name}": emp_name,
+        "{employee}": emp_name,
+        "{staff_name}": emp_name,
+        "{Staff Name}": emp_name,
+        "{department}": emp_dept,
+        "{Department}": emp_dept,
+        "{dept}": emp_dept,
+        "{role}": emp_role,
+        "{Role}": emp_role,
+        "{phone}": emp_phone,
+        "{Phone}": emp_phone,
+        "{location}": emp_loc,
+        "{Location}": emp_loc,
+        "{date}": today_str,
+        "{Date}": today_str,
+    }
+
+    resolved_vars = []
+    for idx, v in enumerate(variables):
+        val = str(v)
+        for token, rep in token_map.items():
+            val = val.replace(token, rep)
+        
+        # Auto-resolve variable 1 (Recipient / Staff Name)
+        if idx == 0:
+            if val in ["{Employee Name}", "{name}", "{Name}", "Ahmed Raza", "Staff", "Team", "Employee"] or "{name}" in val.lower():
+                val = emp_name
+            elif not val.strip():
+                val = emp_name
+        
+        resolved_vars.append(val)
+
+    # Reconstruct personalized body text
+    chat_text = body_template if body_template else ""
+    for idx, v in enumerate(resolved_vars):
+        chat_text = chat_text.replace(f"{{{{{idx + 1}}}}}", str(v))
+
+    return resolved_vars, chat_text
+
 @app.post("/api/broadcasts/send")
 @app.post("/broadcasts/send")
 def send_broadcast(req: BroadcastSendRequest):
@@ -735,6 +840,19 @@ def send_broadcast(req: BroadcastSendRequest):
     today_iso = datetime.now(PKT_TZ).strftime("%Y-%m-%d")
     sender_clean = "923306579717"
 
+    # Fetch raw template body for personalized chat reconstruction
+    raw_template_body = req.body_text
+    try:
+        all_tpls = list_templates().get("templates", [])
+        matched_tpl = next((t for t in all_tpls if t.get("name") == req.template_name), None)
+        if matched_tpl:
+            for c in matched_tpl.get("components", []):
+                if c.get("type") == "BODY":
+                    raw_template_body = c.get("text", req.body_text)
+                    break
+    except Exception:
+        raw_template_body = req.body_text
+
     recipient_results = []
     sent_count = 0
     failed_count = 0
@@ -747,10 +865,9 @@ def send_broadcast(req: BroadcastSendRequest):
 
         emp_name = emp.get("name", "Employee")
 
-        emp_vars = list(req.variables)
+        # Dynamically personalize all variables and body text per recipient (n8n-style)
+        emp_vars, emp_chat_text = personalize_for_employee(req.variables, emp, raw_template_body)
         if emp_vars:
-            if req.recipient_type in ["all", "department"]:
-                emp_vars[0] = emp_name
             parameters = [{"type": "text", "text": str(v)} for v in emp_vars]
             components = [{"type": "body", "parameters": parameters}]
         else:
@@ -845,7 +962,7 @@ def send_broadcast(req: BroadcastSendRequest):
             "id": msg_id,
             "direction": "outgoing",
             "sender": "Al Haditha Energy",
-            "text": f"📢 [{req.template_name.replace('_', ' ').title()}]\n{req.body_text}",
+            "text": "📢 [" + req.template_name.replace("_", " ").title() + "]\n" + emp_chat_text,
             "time": now_time,
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "status": msg_status

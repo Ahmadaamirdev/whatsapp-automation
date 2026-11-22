@@ -1,5 +1,186 @@
 [
   {
+    "id": "BC-1005",
+    "date": "Nov 22, 2026 • 05:43 PM",
+    "date_iso": "2026-11-22",
+    "timestamp": "2026-11-22T12:43:37.630423Z",
+    "template": "Staff Official Notice",
+    "template_name": "staff_official_notice",
+    "content": "Dear {Employee Name}, please be advised of the following announcement regarding Office Timings Update:\n\nThursday working hours will conclude at 2:00 PM.\n\nThank you for your cooperation.",
+    "recipients_count": 1,
+    "recipient_filter": "Employee (Ali Musa)",
+    "recipient_phone": "+923104220217",
+    "status": "Completed",
+    "delivered_pct": 100.0,
+    "read_pct": 0,
+    "replies_count": 0,
+    "sent_count": 1,
+    "failed_count": 0,
+    "messages": [
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSMDM3MDIzODE1RTk4QjVFMzdDAA==",
+        "wamid": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSMDM3MDIzODE1RTk4QjVFMzdDAA==",
+        "phone": "+923104220217",
+        "name": "Ali Musa",
+        "department": "Operations",
+        "status": "sent",
+        "error": null,
+        "time": "05:43 PM",
+        "timestamp": "2026-11-22T12:43:37.206576Z"
+      }
+    ]
+  },
+  {
+    "id": "BC-1004",
+    "date": "Nov 22, 2026 • 05:37 PM",
+    "date_iso": "2026-11-22",
+    "timestamp": "2026-11-22T12:37:53.064000Z",
+    "template": "Staff Official Notice",
+    "template_name": "staff_official_notice",
+    "content": "Dear Ahmed Raza, please be advised of the following announcement regarding meeting:\n\nit will be off toorow\n\nThank you for your cooperation.",
+    "recipients_count": 5,
+    "recipient_filter": "All Employees (5)",
+    "recipient_phone": null,
+    "status": "Completed",
+    "delivered_pct": 80.0,
+    "read_pct": 20.0,
+    "replies_count": 1,
+    "sent_count": 5,
+    "failed_count": 0,
+    "messages": [
+      {
+        "id": "self_1795351071122",
+        "wamid": "self_1795351071122",
+        "phone": "+923306579717",
+        "name": "Ahmed Raza",
+        "department": "HR",
+        "status": "delivered",
+        "error": null,
+        "time": "05:37 PM",
+        "timestamp": "2026-11-22T12:37:51.122988Z"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSNEVFNkNCNUU4RDk2MUUzRjk1AA==",
+        "wamid": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSNEVFNkNCNUU4RDk2MUUzRjk1AA==",
+        "phone": "+923104220217",
+        "name": "Ali Musa",
+        "department": "Operations",
+        "status": "replied",
+        "error": null,
+        "time": "05:37 PM",
+        "timestamp": "2026-11-22T12:37:51.504264Z"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTI0NDk0NTQwFQIAERgSODEwMzNBNUE5MkQ1NTQ1NEMwAA==",
+        "wamid": "wamid.HBgMOTIzMTI0NDk0NTQwFQIAERgSODEwMzNBNUE5MkQ1NTQ1NEMwAA==",
+        "phone": "+923124494540",
+        "name": "Emaad",
+        "department": "Engineering",
+        "status": "delivered",
+        "error": null,
+        "time": "05:37 PM",
+        "timestamp": "2026-11-22T12:37:51.746965Z"
+      },
+      {
+        "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSQkJFMEE1QzFBMEI1MTZBMzQ5AA==",
+        "wamid": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSQkJFMEE1QzFBMEI1MTZBMzQ5AA==",
+        "phone": "+923087786638",
+        "name": "Staff (+923087786638)",
+        "department": "Operations",
+        "status": "delivered",
+        "error": null,
+        "time": "05:37 PM",
+        "timestamp": "2026-11-22T12:37:52.102807Z"
+      },
+      {
+        "id": "wamid.HBgLMTYzMTU1NTExODEVAgARGBIzRTNFQ0RCQzVDMTEzMDE3RUUA",
+        "wamid": "wamid.HBgLMTYzMTU1NTExODEVAgARGBIzRTNFQ0RCQzVDMTEzMDE3RUUA",
+        "phone": "+16315551181",
+        "name": "Test User",
+        "department": "Operations",
+        "status": "failed",
+        "error": null,
+        "time": "05:37 PM",
+        "timestamp": "2026-11-22T12:37:52.312995Z"
+      }
+    ]
+  },
+  {
+    "id": "BC-1003",
+    "date": "Nov 22, 2026 • 12:39 PM",
+    "date_iso": "2026-11-22",
+    "timestamp": "2026-11-22T07:39:04.579892Z",
+    "template": "Staff Official Notice",
+    "template_name": "staff_official_notice",
+    "content": "Dear Ahmed Raza, please be advised of the following announcement regarding Office Timings Update:\n\nThursday working hours will conclude at 2:00 PM.\n\nThank you for your cooperation.",
+    "recipients_count": 5,
+    "recipient_filter": "All Employees (5)",
+    "recipient_phone": null,
+    "status": "Completed",
+    "delivered_pct": 80.0,
+    "read_pct": 40.0,
+    "replies_count": 2,
+    "sent_count": 5,
+    "failed_count": 0,
+    "messages": [
+      {
+        "id": "self_1795333142780",
+        "wamid": "self_1795333142780",
+        "phone": "+923306579717",
+        "name": "Ahmed Raza",
+        "department": "HR",
+        "status": "delivered",
+        "error": null,
+        "time": "12:39 PM",
+        "timestamp": "2026-11-22T07:39:02.780968Z"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSRTI5OTk5QkVGQUVENUQyRDM3AA==",
+        "wamid": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSRTI5OTk5QkVGQUVENUQyRDM3AA==",
+        "phone": "+923104220217",
+        "name": "Ali Musa",
+        "department": "Operations",
+        "status": "replied",
+        "error": null,
+        "time": "12:39 PM",
+        "timestamp": "2026-11-22T07:39:03.048405Z"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTI0NDk0NTQwFQIAERgSMDc5ODI3NkIwM0M5MzlEODNDAA==",
+        "wamid": "wamid.HBgMOTIzMTI0NDk0NTQwFQIAERgSMDc5ODI3NkIwM0M5MzlEODNDAA==",
+        "phone": "+923124494540",
+        "name": "Emaad",
+        "department": "Engineering",
+        "status": "delivered",
+        "error": null,
+        "time": "12:39 PM",
+        "timestamp": "2026-11-22T07:39:03.295035Z"
+      },
+      {
+        "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSRDJGMzZENUYyRThDNUE5RkM3AA==",
+        "wamid": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSRDJGMzZENUYyRThDNUE5RkM3AA==",
+        "phone": "+923087786638",
+        "name": "Staff (+923087786638)",
+        "department": "Operations",
+        "status": "replied",
+        "error": null,
+        "time": "12:39 PM",
+        "timestamp": "2026-11-22T07:39:03.483555Z"
+      },
+      {
+        "id": "wamid.HBgLMTYzMTU1NTExODEVAgARGBIyQjVDNTI4RTRDODRBMzQyMkQA",
+        "wamid": "wamid.HBgLMTYzMTU1NTExODEVAgARGBIyQjVDNTI4RTRDODRBMzQyMkQA",
+        "phone": "+16315551181",
+        "name": "Test User",
+        "department": "Operations",
+        "status": "failed",
+        "error": null,
+        "time": "12:39 PM",
+        "timestamp": "2026-11-22T07:39:03.749363Z"
+      }
+    ]
+  },
+  {
     "id": "BC-1002",
     "date": "Nov 22, 2026 • 12:28 PM",
     "date_iso": "2026-11-22",

@@ -575,18 +575,9 @@ function setupBroadcastStudio() {
 
 // Reset first parameter (Recipient / Staff Name) when unselecting back to Everyone
 function resetRecipientVariableToDefault() {
-  const select = document.getElementById('broadcastTemplateSelect');
-  const selectedName = select ? select.value : 'staff_official_notice';
-  const defaults = {
-    staff_official_notice: "Ahmed Raza",
-    general_announcement: "Team",
-    system_maintenance: "Friday 12:00 AM to 4:00 AM",
-    hr_update: "All Staff"
-  };
-  const defaultVal = defaults[selectedName] || "Staff";
   const firstVarInput = document.querySelector('.var-field[data-tag="{{1}}"]');
   if (firstVarInput) {
-    firstVarInput.value = defaultVal;
+    firstVarInput.value = "{Employee Name}";
     renderLivePreview();
   }
 }
@@ -684,50 +675,84 @@ function updateTemplateVariablesAndPreview() {
   // Descriptive label mappings for known templates
   const variableLabels = {
     staff_official_notice: [
-      { label: "Recipient / Staff Name", defaultVal: "Ahmed Raza", placeholder: "e.g. Ahmed Raza" },
-      { label: "Announcement Title / Subject", defaultVal: "Office Timings Update", placeholder: "e.g. Office Timings Update" },
-      { label: "Official Notice Details", defaultVal: "Thursday working hours will conclude at 2:00 PM.", placeholder: "e.g. Thursday working hours will conclude at 2:00 PM." }
+      { label: "Recipient / Staff Name", varName: "Staff Name", defaultVal: "{Employee Name}", placeholder: "e.g. {name} (Auto-filled per recipient)" },
+      { label: "Announcement Title / Subject", varName: "Announcement Title", defaultVal: "Office Timings Update", placeholder: "e.g. Office Timings Update" },
+      { label: "Official Notice Details", varName: "Notice Details", defaultVal: "Thursday working hours will conclude at 2:00 PM.", placeholder: "e.g. Thursday working hours will conclude at 2:00 PM." }
     ],
     general_announcement: [
-      { label: "Staff / Team Name", defaultVal: "Team", placeholder: "e.g. Al-Haditha Team" },
-      { label: "Announcement Topic", defaultVal: "Safety Standards", placeholder: "e.g. Safety Standards" },
-      { label: "Detailed Notice Content", defaultVal: "All site engineers must follow PPE guidelines.", placeholder: "Enter notice body..." }
+      { label: "Staff / Team Name", varName: "Staff Name", defaultVal: "{Employee Name}", placeholder: "e.g. {name} (Auto-filled per recipient)" },
+      { label: "Announcement Topic", varName: "Announcement Topic", defaultVal: "Safety Standards", placeholder: "e.g. Safety Standards" },
+      { label: "Detailed Notice Content", varName: "Notice Details", defaultVal: "All site engineers must follow PPE guidelines.", placeholder: "Enter notice body..." }
     ],
     system_maintenance: [
-      { label: "Scheduled Maintenance Window", defaultVal: "Friday 12:00 AM to 4:00 AM", placeholder: "e.g. Friday 12:00 AM" }
+      { label: "Scheduled Maintenance Window", varName: "Maintenance Window", defaultVal: "Friday 12:00 AM to 4:00 AM", placeholder: "e.g. Friday 12:00 AM" }
     ],
     hr_update: [
-      { label: "Target Department", defaultVal: "All Staff", placeholder: "e.g. All Staff" },
-      { label: "HR Update Details", defaultVal: "Medical insurance policy cards have been renewed.", placeholder: "e.g. Insurance cards renewed" }
+      { label: "Target Department", varName: "Target Department", defaultVal: "All Staff", placeholder: "e.g. All Staff" },
+      { label: "HR Update Details", varName: "Update Details", defaultVal: "Medical insurance policy cards have been renewed.", placeholder: "e.g. Insurance cards renewed" }
     ]
   };
 
   const templateSpecific = (tpl.variable_definitions && tpl.variable_definitions.length > 0)
     ? tpl.variable_definitions.map((v, i) => ({
-        label: v.label || `Parameter ${v.index || i + 1}`,
-        defaultVal: v.example || `Value ${i + 1}`,
-        placeholder: `e.g. ${v.example || v.label || 'Value'}`
+        label: v.label || v.name || `Variable ${i + 1}`,
+        varName: v.name || v.label || `Variable ${i + 1}`,
+        defaultVal: (i === 0 && ((v.name || '') + (v.label || '')).toLowerCase().includes('name')) ? "{Employee Name}" : (v.example || `Value ${i + 1}`),
+        placeholder: `e.g. ${v.example || v.label || v.name || 'Value'}`
       }))
     : (variableLabels[selectedName] || []);
 
   if (matches.length > 0) {
     matches.forEach((m, idx) => {
       const config = templateSpecific[idx] || {
-        label: `Announcement Parameter ${idx + 1}`,
+        label: `Variable ${idx + 1}`,
+        varName: `Variable ${idx + 1}`,
         defaultVal: `Value ${idx + 1}`,
-        placeholder: `Enter parameter ${idx + 1}`
+        placeholder: `Enter variable ${idx + 1}`
       };
+
+      const displayVarName = config.varName || config.label || `Variable ${idx + 1}`;
 
       const card = document.createElement('div');
       card.className = 'var-input-card';
       card.innerHTML = `
-        <label>
-          <span>${config.label}</span>
-          <span class="var-tag">${m}</span>
+        <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <span style="font-size: 12px; font-weight: 700; color: #1e293b;">${config.label}</span>
+          <span class="var-tag" style="background: #e0f2fe; color: #0369a1; font-weight: 700; border-radius: 4px; padding: 2px 8px; font-size: 11px;">{{${displayVarName}}}</span>
         </label>
-        <input type="text" class="form-input var-field" data-tag="${m}" value="${config.defaultVal}" placeholder="${config.placeholder}">
+        <input type="text" class="form-input var-field" data-tag="${m}" data-varname="${displayVarName}" value="${config.defaultVal}" placeholder="${config.placeholder}">
+        ${idx === 0 ? `
+          <div style="font-size: 11px; color: #059669; font-weight: 600; display: flex; align-items: center; gap: 4px; margin-top: 3px;">
+            <span style="background: #dcfce7; color: #15803d; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 10px;">⚡ Dynamic</span>
+            <span>Auto-filled per recipient (e.g. Ali Musa, Ahmed Raza)</span>
+          </div>
+        ` : ''}
+        <div style="display: flex; gap: 4px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
+          <span style="font-size: 10px; color: #64748b; font-weight: 600;">Insert:</span>
+          <button type="button" class="btn-var-chip" data-target="${m}" data-insert="{name}" style="padding: 1px 6px; font-size: 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer; color: #334155;">+ {name}</button>
+          <button type="button" class="btn-var-chip" data-target="${m}" data-insert="{department}" style="padding: 1px 6px; font-size: 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer; color: #334155;">+ {department}</button>
+          <button type="button" class="btn-var-chip" data-target="${m}" data-insert="{role}" style="padding: 1px 6px; font-size: 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer; color: #334155;">+ {role}</button>
+          <button type="button" class="btn-var-chip" data-target="${m}" data-insert="{date}" style="padding: 1px 6px; font-size: 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer; color: #334155;">+ {date}</button>
+        </div>
       `;
       varContainer.appendChild(card);
+    });
+
+    // Handle tag chip clicks
+    varContainer.querySelectorAll('.btn-var-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetTag = btn.getAttribute('data-target');
+        const insertText = btn.getAttribute('data-insert');
+        const inp = varContainer.querySelector(`.var-field[data-tag="${targetTag}"]`);
+        if (inp) {
+          if (inp.value === "{Employee Name}" || !inp.value.trim()) {
+            inp.value = insertText;
+          } else {
+            inp.value += " " + insertText;
+          }
+          inp.dispatchEvent(new Event('input'));
+        }
+      });
     });
   } else {
     varContainer.innerHTML = `<p style="font-size: 12px; color: #64748b;">This template does not require dynamic variables.</p>`;
@@ -778,11 +803,23 @@ function renderLivePreview() {
   const varInputs = document.querySelectorAll('.var-field');
   const values = [];
 
+  // Determine active recipient preview name
+  const empSelect = document.getElementById('employeeSelectDropdown');
+  const selectedEmpOpt = empSelect ? empSelect.querySelector('option:checked') : null;
+  const activeEmpName = (selectedEmpOpt && selectedEmpOpt.value) ? selectedEmpOpt.getAttribute('data-name') : "Ali Musa";
+
   varInputs.forEach(input => {
     const tag = input.getAttribute('data-tag');
-    const val = input.value || `[${tag}]`;
+    let val = input.value || `[${tag}]`;
     values.push(val);
-    text = text.split(tag).join(`<span class="var-highlight">${val}</span>`);
+    
+    // Friendly dynamic preview for {Employee Name} or {name}
+    let displayVal = val;
+    if (val === "{Employee Name}" || val === "{name}") {
+      displayVal = `<span title="Dynamically replaced per employee on send">${activeEmpName}</span> <span style="font-size: 10px; background: #dcfce7; color: #166534; padding: 1px 4px; border-radius: 2px;">⚡ Dynamic</span>`;
+    }
+
+    text = text.split(tag).join(`<span class="var-highlight">${displayVal}</span>`);
   });
 
   if (previewBody) {
@@ -1181,19 +1218,33 @@ function setupTemplateModal() {
     { label: "Department / Location", example: "Operations Head Office" }
   ];
 
+  // Preset samples for friendly variable names
+  const sampleMap = {
+    "Staff Name": "Ahmed Raza",
+    "name": "Ahmed Raza",
+    "Topic / Title": "Office Timings Update",
+    "topic": "Office Timings Update",
+    "Notice Details": "Thursday working hours will conclude at 2:00 PM.",
+    "details": "Thursday working hours will conclude at 2:00 PM.",
+    "Date / Deadline": "Thursday at 10:00 AM",
+    "date": "Thursday at 10:00 AM",
+    "Department": "Operations Department",
+    "Role": "Field Engineer"
+  };
+
   function getDetectedVariables() {
     if (!bodyInput) return [];
     const text = bodyInput.value || '';
-    const regex = /\{\{(\d+)\}\}/g;
+    const regex = /\{\{([^}]+)\}\}/g;
     const found = [];
     let match;
     while ((match = regex.exec(text)) !== null) {
-      const num = parseInt(match[1], 10);
-      if (!found.includes(num)) {
-        found.push(num);
+      const raw = match[1].trim();
+      if (raw && !found.includes(raw)) {
+        found.push(raw);
       }
     }
-    return found.sort((a, b) => a - b);
+    return found;
   }
 
   function updateLivePreview() {
@@ -1205,10 +1256,11 @@ function setupTemplateModal() {
     }
 
     const detected = getDetectedVariables();
-    detected.forEach(num => {
-      const cur = definedVarsState[num] || {};
-      const exVal = cur.example || (defaultVarConfigs[num - 1] ? defaultVarConfigs[num - 1].example : `Sample ${num}`);
-      const regex = new RegExp(`\\{\\{${num}\\}\\}`, 'g');
+    detected.forEach((vName, idx) => {
+      const cur = definedVarsState[vName] || {};
+      const exVal = cur.example || sampleMap[vName] || (defaultVarConfigs[idx] ? defaultVarConfigs[idx].example : `Sample ${idx + 1}`);
+      const escaped = vName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const regex = new RegExp(`\\{\\{${escaped}\\}\\}`, 'g');
       text = text.replace(regex, `<span style="background: #fef08a; color: #854d0e; padding: 1px 4px; border-radius: 3px; font-weight: 600;">${exVal}</span>`);
     });
 
@@ -1235,33 +1287,33 @@ function setupTemplateModal() {
 
     varsContainer.innerHTML = '';
 
-    detected.forEach((num, idx) => {
-      const fallback = defaultVarConfigs[idx] || { label: `Parameter ${num}`, example: `Sample Value ${num}` };
-      if (!definedVarsState[num]) {
-        definedVarsState[num] = {
-          label: fallback.label,
-          example: fallback.example
+    detected.forEach((vName, idx) => {
+      const fallbackEx = sampleMap[vName] || (defaultVarConfigs[idx] ? defaultVarConfigs[idx].example : `Sample ${idx + 1}`);
+      if (!definedVarsState[vName]) {
+        definedVarsState[vName] = {
+          label: vName,
+          example: fallbackEx
         };
       }
 
-      const cur = definedVarsState[num];
+      const cur = definedVarsState[vName];
       const row = document.createElement('div');
       row.style.cssText = 'display: flex; gap: 10px; align-items: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px;';
 
       row.innerHTML = `
         <div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #008c44; font-family: monospace; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 6px; white-space: nowrap;">
-          {{${num}}}
+          {{${vName}}}
         </div>
         <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
-          <label style="font-size: 10px; font-weight: 700; color: #64748b;">Variable Purpose / Label</label>
-          <input type="text" class="form-input var-label-field" data-num="${num}" value="${cur.label || fallback.label}" placeholder="e.g. Staff Name" style="font-size: 12px; padding: 5px 8px;">
+          <label style="font-size: 10px; font-weight: 700; color: #64748b;">Variable Name / Label</label>
+          <input type="text" class="form-input var-label-field" data-vname="${vName}" value="${cur.label || vName}" placeholder="e.g. Staff Name" style="font-size: 12px; padding: 5px 8px;">
         </div>
         <div style="flex: 1.2; display: flex; flex-direction: column; gap: 2px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <label style="font-size: 10px; font-weight: 700; color: #64748b;">Meta Approval Sample</label>
-            <span style="font-size: 10px; color: #059669; font-weight: 600;">✓ Auto-configured</span>
+            <span style="font-size: 10px; color: #059669; font-weight: 600;">✓ Auto-supplied</span>
           </div>
-          <input type="text" class="form-input var-example-field" data-num="${num}" value="${cur.example || fallback.example}" placeholder="e.g. Ahmed Raza" style="font-size: 12px; padding: 5px 8px; background: #f8fafc;">
+          <input type="text" class="form-input var-example-field" data-vname="${vName}" value="${cur.example || fallbackEx}" placeholder="e.g. Ahmed Raza" style="font-size: 12px; padding: 5px 8px; background: #f8fafc;">
         </div>
       `;
 
@@ -1270,18 +1322,18 @@ function setupTemplateModal() {
 
     varsContainer.querySelectorAll('.var-label-field').forEach(inp => {
       inp.addEventListener('input', (e) => {
-        const num = e.target.getAttribute('data-num');
-        if (definedVarsState[num]) {
-          definedVarsState[num].label = e.target.value;
+        const vName = e.target.getAttribute('data-vname');
+        if (definedVarsState[vName]) {
+          definedVarsState[vName].label = e.target.value;
         }
       });
     });
 
     varsContainer.querySelectorAll('.var-example-field').forEach(inp => {
       inp.addEventListener('input', (e) => {
-        const num = e.target.getAttribute('data-num');
-        if (definedVarsState[num]) {
-          definedVarsState[num].example = e.target.value;
+        const vName = e.target.getAttribute('data-vname');
+        if (definedVarsState[vName]) {
+          definedVarsState[vName].example = e.target.value;
         }
         updateLivePreview();
       });
@@ -1301,15 +1353,12 @@ function setupTemplateModal() {
     bodyInput.focus();
     bodyInput.setSelectionRange(start + tag.length, start + tag.length);
 
-    const match = tag.match(/\{\{(\d+)\}\}/);
-    if (match) {
-      const num = parseInt(match[1], 10);
-      if (!definedVarsState[num] || defaultLabel) {
-        definedVarsState[num] = {
-          label: defaultLabel || `Parameter ${num}`,
-          example: defaultExample || `Sample Value ${num}`
-        };
-      }
+    const vName = tag.replace(/^\{\{|\}\}$/g, '').trim();
+    if (!definedVarsState[vName] || defaultLabel) {
+      definedVarsState[vName] = {
+        label: defaultLabel || vName,
+        example: defaultExample || sampleMap[vName] || `Sample Value`
+      };
     }
 
     renderDefinedVariables();
@@ -1319,17 +1368,16 @@ function setupTemplateModal() {
     chip.addEventListener('click', () => {
       const label = chip.getAttribute('data-name');
       const example = chip.getAttribute('data-example');
-      const detected = getDetectedVariables();
-      const nextNum = detected.length > 0 ? Math.max(...detected) + 1 : 1;
-      insertPlaceholderAtCursor(`{{${nextNum}}}`, label, example);
+      // Insert named variable (e.g. {{Staff Name}}), NOT raw numbers {{1}}
+      insertPlaceholderAtCursor(`{{${label}}}`, label, example);
     });
   });
 
   if (btnAddVar) {
     btnAddVar.addEventListener('click', () => {
       const detected = getDetectedVariables();
-      const nextNum = detected.length > 0 ? Math.max(...detected) + 1 : 1;
-      insertPlaceholderAtCursor(`{{${nextNum}}}`);
+      const nextName = `Variable_${detected.length + 1}`;
+      insertPlaceholderAtCursor(`{{${nextName}}}`, nextName);
     });
   }
 
@@ -1366,21 +1414,30 @@ function setupTemplateModal() {
       // Automatic Name Formatter: Convert 'Staff Timing Update 2026' into 'staff_timing_update_2026'
       const cleanName = formatMetaTemplateName(rawName) || `template_${Date.now()}`;
 
-      // Automatic Sample Values: Gather or supply default Meta approval samples
+      // Automatic Sample Values & Variable Name Conversion for Meta Cloud API format
       const detected = getDetectedVariables();
       const variableDefs = [];
       const examples = [];
+      let metaFormattedBody = body;
 
       for (let i = 0; i < detected.length; i++) {
-        const num = detected[i];
-        const cur = definedVarsState[num] || {};
-        const fallback = defaultVarConfigs[i] || { label: `Parameter ${num}`, example: `Sample Value ${num}` };
+        const vName = detected[i];
+        const num = i + 1;
+        const cur = definedVarsState[vName] || {};
+        const fallbackEx = sampleMap[vName] || (defaultVarConfigs[i] ? defaultVarConfigs[i].example : `Sample ${num}`);
         
-        const label = cur.label || fallback.label;
-        const ex = (cur.example && cur.example.trim()) ? cur.example.trim() : fallback.example;
+        const label = cur.label || vName;
+        const ex = (cur.example && cur.example.trim()) ? cur.example.trim() : fallbackEx;
+
+        // Convert friendly variable names {{Staff Name}} to {{1}} for Meta's strict backend requirement
+        const escaped = vName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const regex = new RegExp(`\\{\\{${escaped}\\}\\}`, 'g');
+        metaFormattedBody = metaFormattedBody.replace(regex, `{{${num}}}`);
 
         variableDefs.push({
           index: num,
+          name: vName,
+          tag: `{{${vName}}}`,
           label: label,
           example: ex
         });
@@ -1399,7 +1456,7 @@ function setupTemplateModal() {
             category: cat,
             language: lang,
             header_text: header || null,
-            body_text: body,
+            body_text: metaFormattedBody,
             footer_text: footer || null,
             example_variables: examples,
             variable_definitions: variableDefs

@@ -4,7 +4,7 @@
     "name": "test user name",
     "role": "Employee • WhatsApp Contact",
     "unread_count": 0,
-    "last_activity": "11:14 PM",
+    "last_activity": "05:37 PM",
     "messages": [
       {
         "id": "ABGGFlA5Fpa",
@@ -13,6 +13,24 @@
         "text": "this is a text message",
         "time": "11:14 PM",
         "timestamp": "2026-11-21T18:14:21.513227Z"
+      },
+      {
+        "id": "wamid.HBgLMTYzMTU1NTExODEVAgARGBIyQjVDNTI4RTRDODRBMzQyMkQA",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ahmed Raza, please be advised of the following announcement regarding Office Timings Update:\n\nThursday working hours will conclude at 2:00 PM.\n\nThank you for your cooperation.",
+        "time": "12:39 PM",
+        "timestamp": "2026-11-22T07:39:03.749389Z",
+        "status": "sent"
+      },
+      {
+        "id": "wamid.HBgLMTYzMTU1NTExODEVAgARGBIzRTNFQ0RCQzVDMTEzMDE3RUUA",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ahmed Raza, please be advised of the following announcement regarding meeting:\n\nit will be off toorow\n\nThank you for your cooperation.",
+        "time": "05:37 PM",
+        "timestamp": "2026-11-22T12:37:52.313020Z",
+        "status": "sent"
       }
     ],
     "phone": "+16315551181"
@@ -21,8 +39,8 @@
     "employee_id": "EMP-NEW",
     "name": "Ali Musa",
     "role": "Employee • WhatsApp Contact",
-    "unread_count": 1,
-    "last_activity": "12:28 PM",
+    "unread_count": 0,
+    "last_activity": "05:43 PM",
     "messages": [
       {
         "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAEhggQUM5NDAwQTIyOTg1NDE0MkM5RUUzOUI2NzNFNzZGNzIA",
@@ -84,7 +102,7 @@
         "text": "📢 [Staff Official Notice]\nDear Ali Musa, please be advised of the following announcement regarding Safety Notice: Wear PPE helmet at construction sites at all times. Thank you for your cooperation.",
         "time": "12:28 PM",
         "timestamp": "2026-11-22T07:28:04.365843Z",
-        "status": "delivered"
+        "status": "read"
       },
       {
         "id": "wamid.INCOMING_TEST_REPLY_1",
@@ -93,16 +111,68 @@
         "text": "Received and noted, thank you!",
         "time": "12:28 PM",
         "timestamp": "2026-11-22T07:28:54.267361Z"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSRTI5OTk5QkVGQUVENUQyRDM3AA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ali Musa, please be advised of the following announcement regarding Office Timings Update:\n\nThursday working hours will conclude at 2:00 PM.\n\nThank you for your cooperation.",
+        "time": "12:39 PM",
+        "timestamp": "2026-11-22T07:39:03.048434Z",
+        "status": "read"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAEhggQUNBRDk5Mjk0Q0M2MzdDQjkzRUJDMjRDMTM1MEE5NDEA",
+        "direction": "incoming",
+        "sender": "Ali Musa",
+        "text": "Ok",
+        "time": "12:40 PM",
+        "timestamp": "2026-11-22T07:40:13.557316Z"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSNEVFNkNCNUU4RDk2MUUzRjk1AA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ali Musa, please be advised of the following announcement regarding meeting:\n\nit will be off toorow\n\nThank you for your cooperation.",
+        "time": "05:37 PM",
+        "timestamp": "2026-11-22T12:37:51.504314Z",
+        "status": "read"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAEhggQUNBMjZENTQ1MTY2MUUxNkUyMkI4RjBFMEYxRjk1MDIA",
+        "direction": "incoming",
+        "sender": "Ali Musa",
+        "text": "Ok",
+        "time": "05:38 PM",
+        "timestamp": "2026-11-22T12:38:38.664757Z"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSQkQwREE0Q0NCMzlCMkY3MjVFAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "nice",
+        "time": "05:38 PM",
+        "timestamp": "2026-11-22T12:38:58.225035Z",
+        "status": "read"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSMDM3MDIzODE1RTk4QjVFMzdDAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ali Musa, please be advised of the following announcement regarding Office Timings Update:\n\nThursday working hours will conclude at 2:00 PM.\n\nThank you for your cooperation.",
+        "time": "05:43 PM",
+        "timestamp": "2026-11-22T12:43:37.206576Z",
+        "status": "sent"
       }
     ],
     "phone": "+923104220217"
   },
   "+923087786638": {
     "employee_id": "EMP-1001",
-    "name": "Employee",
+    "name": "Staff (+923087786638)",
     "role": "Employee",
     "unread_count": 0,
-    "last_activity": "11:43 PM",
+    "last_activity": "05:37 PM",
     "messages": [
       {
         "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSMENCRkFCNUIwODk1RkIxM0NDAA==",
@@ -112,6 +182,32 @@
         "time": "11:43 PM",
         "timestamp": "2026-11-21T18:43:53.596768Z",
         "status": "sent"
+      },
+      {
+        "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSRDJGMzZENUYyRThDNUE5RkM3AA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ahmed Raza, please be advised of the following announcement regarding Office Timings Update:\n\nThursday working hours will conclude at 2:00 PM.\n\nThank you for your cooperation.",
+        "time": "12:39 PM",
+        "timestamp": "2026-11-22T07:39:03.483582Z",
+        "status": "delivered"
+      },
+      {
+        "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAEhggQUMwRTM5NkM2NDYyQjBDMzE4ODU1OTdEMTExMTU4ODUA",
+        "direction": "incoming",
+        "sender": "Staff (+923087786638)",
+        "text": "Achawww",
+        "time": "12:49 PM",
+        "timestamp": "2026-11-22T07:49:49.323600Z"
+      },
+      {
+        "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSQkJFMEE1QzFBMEI1MTZBMzQ5AA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ahmed Raza, please be advised of the following announcement regarding meeting:\n\nit will be off toorow\n\nThank you for your cooperation.",
+        "time": "05:37 PM",
+        "timestamp": "2026-11-22T12:37:52.102835Z",
+        "status": "delivered"
       }
     ],
     "phone": "+923087786638"
@@ -121,7 +217,7 @@
     "name": "Employee",
     "role": "Employee",
     "unread_count": 0,
-    "last_activity": "11:48 PM",
+    "last_activity": "05:37 PM",
     "messages": [
       {
         "id": "wamid.HBgMOTIzMTI0NDk0NTQwFQIAERgSNTQ3QjRBNDFBRkU4QUI0NkJGAA==",
@@ -131,6 +227,24 @@
         "time": "11:48 PM",
         "timestamp": "2026-11-21T18:48:01.445295Z",
         "status": "delivered"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTI0NDk0NTQwFQIAERgSMDc5ODI3NkIwM0M5MzlEODNDAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ahmed Raza, please be advised of the following announcement regarding Office Timings Update:\n\nThursday working hours will conclude at 2:00 PM.\n\nThank you for your cooperation.",
+        "time": "12:39 PM",
+        "timestamp": "2026-11-22T07:39:03.295067Z",
+        "status": "delivered"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTI0NDk0NTQwFQIAERgSODEwMzNBNUE5MkQ1NTQ1NEMwAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ahmed Raza, please be advised of the following announcement regarding meeting:\n\nit will be off toorow\n\nThank you for your cooperation.",
+        "time": "05:37 PM",
+        "timestamp": "2026-11-22T12:37:51.746994Z",
+        "status": "sent"
       }
     ],
     "phone": "+923124494540"
