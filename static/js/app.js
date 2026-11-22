@@ -110,24 +110,46 @@ function switchTab(tabName) {
   // Hide all tab views
   document.querySelectorAll('.tab-view').forEach(view => view.style.display = 'none');
 
-  // Activate selected tab without injecting redundant top headings
+  const topHeader = document.getElementById('mainTopHeader') || document.querySelector('.top-header');
+  const welcomeBlock = document.getElementById('dashboardWelcomeBlock');
+  const notifBlock = document.getElementById('headerNotificationBlock');
+
   if (tabName === 'dashboard') {
     document.getElementById('view-dashboard').style.display = 'block';
+    // Restore welcome text and notification symbol on Dashboard
+    if (topHeader) topHeader.style.display = 'flex';
+    if (welcomeBlock) welcomeBlock.style.display = 'block';
+    if (notifBlock) notifBlock.style.display = 'flex';
     loadMetrics();
     loadBroadcasts();
-  } else if (tabName === 'broadcasts') {
-    document.getElementById('view-broadcasts').style.display = 'block';
-    loadBroadcasts();
-    loadBroadcastRecipients();
-  } else if (tabName === 'employees') {
-    document.getElementById('view-employees').style.display = 'block';
-    loadEmployeesTable(currentEmployeePage);
-  } else if (tabName === 'messages') {
-    document.getElementById('view-messages').style.display = 'flex';
-    loadChats(true);
-  } else if (tabName === 'templates') {
-    document.getElementById('view-templates').style.display = 'block';
-    loadTemplatesTable();
+  } else {
+    // Hide notifications symbol on all other modules
+    if (notifBlock) notifBlock.style.display = 'none';
+    if (welcomeBlock) welcomeBlock.style.display = 'none';
+
+    // On other modules, hide top-header so top cards align right at the top
+    if (topHeader) {
+      if (window.innerWidth > 768) {
+        topHeader.style.display = 'none';
+      } else {
+        topHeader.style.display = 'flex';
+      }
+    }
+
+    if (tabName === 'broadcasts') {
+      document.getElementById('view-broadcasts').style.display = 'block';
+      loadBroadcasts();
+      loadBroadcastRecipients();
+    } else if (tabName === 'employees') {
+      document.getElementById('view-employees').style.display = 'block';
+      loadEmployeesTable(currentEmployeePage);
+    } else if (tabName === 'messages') {
+      document.getElementById('view-messages').style.display = 'flex';
+      loadChats(true);
+    } else if (tabName === 'templates') {
+      document.getElementById('view-templates').style.display = 'block';
+      loadTemplatesTable();
+    }
   }
 
   if (window.closeMobileSidebar && window.innerWidth <= 768) {
@@ -1333,7 +1355,8 @@ function setupTemplateModal() {
       const lang = document.getElementById('tplLangSelect').value;
       const header = document.getElementById('tplHeaderInput').value.trim();
       const body = bodyInput ? bodyInput.value.trim() : '';
-      const footer = document.getElementById('tplFooterInput').value.trim();
+      const footerEl = document.getElementById('tplFooterInput');
+      const footer = footerEl ? footerEl.value.trim() : null;
 
       if (!rawName || !body) {
         alert('Please enter a Template Name and Body text.');

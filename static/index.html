@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>WhatsApp Announcement & Communication System - Al Haditha Energy</title>
   <link rel="icon" type="image/png" href="/logo.png">
-  <link rel="stylesheet" href="/css/style.css?v=2.6.0">
+  <link rel="stylesheet" href="/css/style.css?v=2.7.0">
   <!-- Lucide Icons for clean SVG rendering -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -63,13 +63,19 @@
 
     <!-- MAIN CONTENT WRAPPER -->
     <main class="main-wrapper">
-      <!-- TOP HEADER (Cleaned: Headings removed, aligned with mobile toggle & notification bell) -->
-      <header class="top-header">
+      <!-- TOP HEADER (Visible on Dashboard with restored Welcome Text & Notification Symbol) -->
+      <header class="top-header" id="mainTopHeader">
         <button type="button" class="btn-icon-wrapper mobile-nav-toggle" id="btnToggleSidebar" title="Toggle Navigation Menu">
           <i data-lucide="menu" style="width: 20px; height: 20px;"></i>
         </button>
 
-        <div class="header-right" style="margin-left: auto;">
+        <div class="header-left" id="dashboardWelcomeBlock">
+          <h3>Welcome back,</h3>
+          <h1>WhatsApp Announcement System</h1>
+          <p>Official enterprise broadcast and real-time live communication center</p>
+        </div>
+
+        <div class="header-right" id="headerNotificationBlock" style="margin-left: auto;">
           <!-- Notification Bell with real-time unread messages badge -->
           <div class="btn-icon-wrapper" id="notificationBellBtn" title="Incoming Messages & Replies" style="cursor: pointer;">
             <i data-lucide="bell" style="width: 20px; height: 20px;"></i>
@@ -553,7 +559,7 @@
       </div>
 
       <!-- VIEW 3: MESSAGES (AUTHENTIC WHATSAPP WEB-STYLE LIVE INTERFACE) -->
-      <div id="view-messages" class="content-body tab-view" style="display: none; height: calc(100vh - 120px); padding: 0;">
+      <div id="view-messages" class="content-body tab-view" style="display: none; height: 100vh; padding: 0;">
         <div class="wa-web-container">
           <!-- LEFT CHATS SIDEBAR (WhatsApp Web Contacts Column) -->
           <div class="wa-contacts-panel">
@@ -738,10 +744,7 @@
           <div id="tplLivePreviewText" style="font-size: 13px; color: #0f172a; line-height: 1.4; white-space: pre-wrap; font-family: inherit;">Enter body text to preview message...</div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Footer (Optional)</label>
-          <input type="text" id="tplFooterInput" class="form-input" placeholder="e.g. Al-Haditha Energy Management">
-        </div>
+
       </div>
 
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
@@ -815,6 +818,6 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=2.6.0"></script>
+  <script src="/js/app.js?v=2.7.0"></script>
 </body>
 </html>
