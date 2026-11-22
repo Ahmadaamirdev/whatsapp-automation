@@ -690,13 +690,48 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Body Text (Use {{1}}, {{2}} for dynamic placeholders)</label>
-          <textarea id="tplBodyInput" class="template-textarea" style="height: 90px;" placeholder="Dear {{1}}, please be advised of {{2}}: {{3}}. Thank you."></textarea>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" style="margin-bottom: 0;">Body Text</label>
+            <button type="button" class="btn-action-view" id="btnAddVariableBtn" style="padding: 4px 10px; font-size: 11px; font-weight: 700; color: #008c44; background: #ecfdf5; border-color: #a7f3d0; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+              <i data-lucide="plus" style="width: 12px; height: 12px;"></i>
+              <span>Add Variable {{#}}</span>
+            </button>
+          </div>
+          <textarea id="tplBodyInput" class="template-textarea" style="height: 85px;" placeholder="Dear {{1}}, please be advised that {{2}} will take place on {{3}}. Thank you."></textarea>
+          
+          <!-- QUICK VARIABLE INSERT CHIPS -->
+          <div style="display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap;">
+            <span style="font-size: 11px; color: #64748b; font-weight: 600;">Quick insert:</span>
+            <button type="button" class="tpl-quick-chip" data-name="Staff Name" data-example="Ahmed Raza" style="padding: 3px 8px; font-size: 11px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; color: #334155;">+ Staff Name</button>
+            <button type="button" class="tpl-quick-chip" data-name="Topic / Title" data-example="Office Timings Update" style="padding: 3px 8px; font-size: 11px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; color: #334155;">+ Topic / Title</button>
+            <button type="button" class="tpl-quick-chip" data-name="Notice Details" data-example="Thursday working hours will conclude at 2:00 PM." style="padding: 3px 8px; font-size: 11px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; color: #334155;">+ Notice Details</button>
+            <button type="button" class="tpl-quick-chip" data-name="Date / Deadline" data-example="Thursday at 10:00 AM" style="padding: 3px 8px; font-size: 11px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; color: #334155;">+ Date / Deadline</button>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Example Variables (Required by Meta for automated approval)</label>
-          <input type="text" id="tplExampleInput" class="form-input" placeholder="e.g. Ahmed, Schedule Update, Shift begins at 8 AM">
+        <!-- SIMPLIFIED DYNAMIC VARIABLES DEFINITIONS SECTION -->
+        <div class="form-group" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+              <i data-lucide="sliders" style="width: 14px; height: 14px; color: #00a651;"></i>
+              <span>Define Dynamic Variables</span>
+            </label>
+            <span id="tplVarsCountBadge" style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 10px; font-weight: 700;">0 Variables</span>
+          </div>
+          <p style="font-size: 11px; color: #64748b; margin-bottom: 8px;">Define a human-friendly name and sample value for each variable. Sample values are required by Meta for approval.</p>
+
+          <div id="tplDefinedVarsContainer" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- Populated dynamically as variables are typed or inserted -->
+          </div>
+        </div>
+
+        <!-- LIVE MESSAGE PREVIEW -->
+        <div class="form-group" style="background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+            <i data-lucide="eye" style="width: 12px; height: 12px; color: #0284c7;"></i>
+            <span>Live Message Preview</span>
+          </div>
+          <div id="tplLivePreviewText" style="font-size: 13px; color: #0f172a; line-height: 1.4; white-space: pre-wrap; font-family: inherit;">Enter body text to preview message...</div>
         </div>
 
         <div class="form-group">

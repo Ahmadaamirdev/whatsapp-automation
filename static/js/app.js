@@ -680,7 +680,13 @@ function updateTemplateVariablesAndPreview() {
     ]
   };
 
-  const templateSpecific = variableLabels[selectedName] || [];
+  const templateSpecific = (tpl.variable_definitions && tpl.variable_definitions.length > 0)
+    ? tpl.variable_definitions.map((v, i) => ({
+        label: v.label || `Parameter ${v.index || i + 1}`,
+        defaultVal: v.example || `Value ${i + 1}`,
+        placeholder: `e.g. ${v.example || v.label || 'Value'}`
+      }))
+    : (variableLabels[selectedName] || []);
 
   if (matches.length > 0) {
     matches.forEach((m, idx) => {
@@ -1107,8 +1113,185 @@ function setupTemplateModal() {
   const btnClose = document.getElementById('btnCloseModal');
   const btnCancel = document.getElementById('btnCancelModal');
   const btnSubmit = document.getElementById('btnSubmitTemplateToMeta');
+  const bodyInput = document.getElementById('tplBodyInput');
+  const varsContainer = document.getElementById('tplDefinedVarsContainer');
+  const varsBadge = document.getElementById('tplVarsCountBadge');
+  const previewText = document.getElementById('tplLivePreviewText');
+  const btnAddVar = document.getElementById('btnAddVariableBtn');
 
-  if (btnOpen) btnOpen.addEventListener('click', () => modal.style.display = 'flex');
+  // Local state holding user-defined label & example for each variable number
+  let definedVarsState = {};
+
+  // Default suggested configurations
+  const defaultVarConfigs = [
+    { label: "Recipient / Staff Name", example: "Ahmed Raza" },
+    { label: "Announcement Topic", example: "Office Timings Update" },
+    { label: "Notice Details", example: "Thursday working hours will conclude at 2:00 PM." },
+    { label: "Date / Time", example: "Thursday at 10:00 AM" },
+    { label: "Location / Department", example: "Operations Head Office" }
+  ];
+
+  function getDetectedVariables() {
+    if (!bodyInput) return [];
+    const text = bodyInput.value || '';
+    const regex = /\{\{(\d+)\}\}/g;
+    const found = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const num = parseInt(match[1], 10);
+      if (!found.includes(num)) {
+        found.push(num);
+      }
+    }
+    return found.sort((a, b) => a - b);
+  }
+
+  function updateLivePreview() {
+    if (!previewText || !bodyInput) return;
+    let text = bodyInput.value || '';
+    if (!text.trim()) {
+      previewText.innerHTML = '<span style="color: #94a3b8; font-style: italic;">Enter body text to preview message...</span>';
+      return;
+    }
+
+    const detected = getDetectedVariables();
+    detected.forEach(num => {
+      const cur = definedVarsState[num] || {};
+      const exVal = cur.example || `[Sample ${num}]`;
+      const regex = new RegExp(`\\{\\{${num}\\}\\}`, 'g');
+      text = text.replace(regex, `<span style="background: #fef08a; color: #854d0e; padding: 1px 4px; border-radius: 3px; font-weight: 600;">${exVal}</span>`);
+    });
+
+    previewText.innerHTML = text;
+  }
+
+  function renderDefinedVariables() {
+    if (!varsContainer) return;
+    const detected = getDetectedVariables();
+
+    if (varsBadge) {
+      varsBadge.textContent = `${detected.length} Variable${detected.length === 1 ? '' : 's'}`;
+    }
+
+    if (detected.length === 0) {
+      varsContainer.innerHTML = `
+        <div style="font-size: 12px; color: #64748b; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 10px; text-align: center;">
+          No dynamic variables in text. Click <b>"+ Add Variable"</b> or quick buttons above to personalize with recipient name, details, etc.
+        </div>
+      `;
+      updateLivePreview();
+      return;
+    }
+
+    varsContainer.innerHTML = '';
+
+    detected.forEach((num, idx) => {
+      if (!definedVarsState[num]) {
+        const fallback = defaultVarConfigs[idx] || { label: `Variable ${num}`, example: `Sample Value ${num}` };
+        definedVarsState[num] = {
+          label: fallback.label,
+          example: fallback.example
+        };
+      }
+
+      const cur = definedVarsState[num];
+      const row = document.createElement('div');
+      row.style.cssText = 'display: flex; gap: 8px; align-items: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px;';
+
+      row.innerHTML = `
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #008c44; font-family: monospace; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 6px; white-space: nowrap;">
+          {{${num}}}
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+          <label style="font-size: 10px; font-weight: 700; color: #64748b;">Variable Name / Label</label>
+          <input type="text" class="form-input var-label-field" data-num="${num}" value="${cur.label || ''}" placeholder="e.g. Staff Name" style="font-size: 12px; padding: 5px 8px;">
+        </div>
+        <div style="flex: 1.2; display: flex; flex-direction: column; gap: 2px;">
+          <label style="font-size: 10px; font-weight: 700; color: #64748b;">Sample Value (for Meta Approval)</label>
+          <input type="text" class="form-input var-example-field" data-num="${num}" value="${cur.example || ''}" placeholder="e.g. Ahmed Raza" style="font-size: 12px; padding: 5px 8px;">
+        </div>
+      `;
+
+      varsContainer.appendChild(row);
+    });
+
+    varsContainer.querySelectorAll('.var-label-field').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const num = e.target.getAttribute('data-num');
+        if (definedVarsState[num]) {
+          definedVarsState[num].label = e.target.value;
+        }
+      });
+    });
+
+    varsContainer.querySelectorAll('.var-example-field').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const num = e.target.getAttribute('data-num');
+        if (definedVarsState[num]) {
+          definedVarsState[num].example = e.target.value;
+        }
+        updateLivePreview();
+      });
+    });
+
+    updateLivePreview();
+    initIcons();
+  }
+
+  function insertPlaceholderAtCursor(tag, defaultLabel, defaultExample) {
+    if (!bodyInput) return;
+    const start = bodyInput.selectionStart || bodyInput.value.length;
+    const end = bodyInput.selectionEnd || bodyInput.value.length;
+    const val = bodyInput.value;
+
+    bodyInput.value = val.substring(0, start) + tag + val.substring(end);
+    bodyInput.focus();
+    bodyInput.setSelectionRange(start + tag.length, start + tag.length);
+
+    const match = tag.match(/\{\{(\d+)\}\}/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (!definedVarsState[num] || defaultLabel) {
+        definedVarsState[num] = {
+          label: defaultLabel || `Parameter ${num}`,
+          example: defaultExample || `Sample Value ${num}`
+        };
+      }
+    }
+
+    renderDefinedVariables();
+  }
+
+  document.querySelectorAll('.tpl-quick-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const label = chip.getAttribute('data-name');
+      const example = chip.getAttribute('data-example');
+      const detected = getDetectedVariables();
+      const nextNum = detected.length > 0 ? Math.max(...detected) + 1 : 1;
+      insertPlaceholderAtCursor(`{{${nextNum}}}`, label, example);
+    });
+  });
+
+  if (btnAddVar) {
+    btnAddVar.addEventListener('click', () => {
+      const detected = getDetectedVariables();
+      const nextNum = detected.length > 0 ? Math.max(...detected) + 1 : 1;
+      insertPlaceholderAtCursor(`{{${nextNum}}}`);
+    });
+  }
+
+  if (bodyInput) {
+    bodyInput.addEventListener('input', () => {
+      renderDefinedVariables();
+    });
+  }
+
+  if (btnOpen) {
+    btnOpen.addEventListener('click', () => {
+      modal.style.display = 'flex';
+      renderDefinedVariables();
+    });
+  }
   if (btnClose) btnClose.addEventListener('click', () => modal.style.display = 'none');
   if (btnCancel) btnCancel.addEventListener('click', () => modal.style.display = 'none');
 
@@ -1118,16 +1301,40 @@ function setupTemplateModal() {
       const cat = document.getElementById('tplCategorySelect').value;
       const lang = document.getElementById('tplLangSelect').value;
       const header = document.getElementById('tplHeaderInput').value.trim();
-      const body = document.getElementById('tplBodyInput').value.trim();
+      const body = bodyInput.value.trim();
       const footer = document.getElementById('tplFooterInput').value.trim();
-      const exStr = document.getElementById('tplExampleInput').value.trim();
 
       if (!name || !body) {
         alert('Please fill out the Template Name and Body text.');
         return;
       }
 
-      const examples = exStr ? exStr.split(',').map(s => s.trim()) : [];
+      if (!/^[a-z0-9_]+$/.test(name)) {
+        alert('Template name must contain only lowercase letters, numbers, and underscores (e.g. staff_monthly_notice).');
+        return;
+      }
+
+      const detected = getDetectedVariables();
+      const variableDefs = [];
+      const examples = [];
+
+      for (const num of detected) {
+        const cur = definedVarsState[num] || {};
+        const label = cur.label || `Parameter ${num}`;
+        const ex = (cur.example || '').trim();
+
+        if (!ex) {
+          alert(`Please provide a sample value for Variable {{${num}}} (${label}). Meta requires example values to approve templates.`);
+          return;
+        }
+
+        variableDefs.push({
+          index: num,
+          label: label,
+          example: ex
+        });
+        examples.push(ex);
+      }
 
       btnSubmit.disabled = true;
       btnSubmit.textContent = 'Submitting to Meta...';
@@ -1143,7 +1350,8 @@ function setupTemplateModal() {
             header_text: header || null,
             body_text: body,
             footer_text: footer || null,
-            example_variables: examples
+            example_variables: examples,
+            variable_definitions: variableDefs
           })
         });
 

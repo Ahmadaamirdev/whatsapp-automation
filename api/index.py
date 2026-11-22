@@ -354,11 +354,13 @@ def list_templates():
         if bt["name"] not in all_names:
             combined.append(bt)
 
-    # Attach audit data to templates
+    # Attach audit data and variable definitions to templates
     for t in combined:
         name = t.get("name")
         if name in audit_logs:
             t["audit"] = audit_logs[name]
+            if "variable_definitions" in audit_logs[name]:
+                t["variable_definitions"] = audit_logs[name]["variable_definitions"]
 
     return {"templates": combined, "audit_history": audit_logs}
 
@@ -377,6 +379,7 @@ class TemplateCreateRequest(BaseModel):
     body_text: str
     footer_text: Optional[str] = None
     example_variables: List[str] = []
+    variable_definitions: Optional[List[Dict[str, Any]]] = None
 
 @app.post("/api/templates")
 @app.post("/templates")
@@ -397,9 +400,13 @@ def create_template(tpl: TemplateCreateRequest):
     }
     
     # If dynamic variables {{1}}, {{2}} exist, Meta requires example values for approval
-    if tpl.example_variables and len(tpl.example_variables) > 0:
+    examples = list(tpl.example_variables) if tpl.example_variables else []
+    if not examples and tpl.variable_definitions:
+        examples = [str(v.get("example") or f"Sample {i+1}") for i, v in enumerate(tpl.variable_definitions)]
+
+    if examples and len(examples) > 0:
         body_component["example"] = {
-            "body_text": [tpl.example_variables]
+            "body_text": [examples]
         }
     components.append(body_component)
 
@@ -441,7 +448,8 @@ def create_template(tpl: TemplateCreateRequest):
                 "status": res_data.get("status", "PENDING"),
                 "meta_id": res_data.get("id"),
                 "approved_at": None,
-                "approval_duration": None
+                "approval_duration": None,
+                "variable_definitions": tpl.variable_definitions or []
             }
             save_json(AUDIT_FILE, audit_logs)
 
