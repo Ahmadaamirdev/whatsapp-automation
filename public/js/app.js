@@ -52,8 +52,33 @@ function setupNavigation() {
       e.preventDefault();
       const targetTab = item.getAttribute('data-tab');
       switchTab(targetTab);
+      closeMobileSidebar();
     });
   });
+
+  // Mobile sidebar toggle & backdrop
+  const toggleBtn = document.getElementById('btnToggleSidebar');
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+
+  window.closeMobileSidebar = function() {
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+  };
+
+  if (toggleBtn && sidebar) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sidebar.classList.toggle('open');
+      if (overlay) overlay.classList.toggle('active', sidebar.classList.contains('open'));
+    });
+  }
+
+  if (overlay) {
+    overlay.addEventListener('click', () => {
+      if (window.closeMobileSidebar) window.closeMobileSidebar();
+    });
+  }
 
   // URL hash routing
   window.addEventListener('hashchange', () => {
@@ -85,54 +110,28 @@ function switchTab(tabName) {
   // Hide all tab views
   document.querySelectorAll('.tab-view').forEach(view => view.style.display = 'none');
 
-  const welcomeBlock = document.getElementById('dashboardWelcomeBlock');
-  const titleBlock = document.getElementById('pageTitleBlock');
-  const pageTitle = document.getElementById('pageTitle');
-  const pageSubtitle = document.getElementById('pageSubtitle');
-
+  // Activate selected tab without injecting redundant top headings
   if (tabName === 'dashboard') {
     document.getElementById('view-dashboard').style.display = 'block';
-    if (welcomeBlock) welcomeBlock.style.display = 'block';
-    if (titleBlock) titleBlock.style.display = 'none';
     loadMetrics();
     loadBroadcasts();
   } else if (tabName === 'broadcasts') {
     document.getElementById('view-broadcasts').style.display = 'block';
-    if (welcomeBlock) welcomeBlock.style.display = 'none';
-    if (titleBlock) {
-      titleBlock.style.display = 'block';
-      pageTitle.textContent = 'WhatsApp Broadcast Studio';
-      pageSubtitle.textContent = 'Design, preview, and dispatch official Meta-approved template announcements.';
-    }
     loadBroadcasts();
     loadBroadcastRecipients();
   } else if (tabName === 'employees') {
     document.getElementById('view-employees').style.display = 'block';
-    if (welcomeBlock) welcomeBlock.style.display = 'none';
-    if (titleBlock) {
-      titleBlock.style.display = 'block';
-      pageTitle.textContent = 'Employee Directory';
-      pageSubtitle.textContent = 'Manage staff members, sync WhatsApp broadcast recipients, and initiate conversations.';
-    }
     loadEmployeesTable(currentEmployeePage);
   } else if (tabName === 'messages') {
     document.getElementById('view-messages').style.display = 'flex';
-    if (welcomeBlock) welcomeBlock.style.display = 'none';
-    if (titleBlock) {
-      titleBlock.style.display = 'block';
-      pageTitle.textContent = 'WhatsApp Live Conversations';
-      pageSubtitle.textContent = 'Real-time two-way WhatsApp live chat powered by Meta Cloud API.';
-    }
     loadChats(true);
   } else if (tabName === 'templates') {
     document.getElementById('view-templates').style.display = 'block';
-    if (welcomeBlock) welcomeBlock.style.display = 'none';
-    if (titleBlock) {
-      titleBlock.style.display = 'block';
-      pageTitle.textContent = 'Meta Message Templates';
-      pageSubtitle.textContent = 'Review template approval statuses and submit new templates directly to Meta.';
-    }
     loadTemplatesTable();
+  }
+
+  if (window.closeMobileSidebar && window.innerWidth <= 768) {
+    window.closeMobileSidebar();
   }
 
   window.location.hash = tabName;

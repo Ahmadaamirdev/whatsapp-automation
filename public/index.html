@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>WhatsApp Announcement & Communication System - Al Haditha Energy</title>
   <link rel="icon" type="image/png" href="/logo.png">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=2.6.0">
   <!-- Lucide Icons for clean SVG rendering -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -59,24 +59,17 @@
         </div>
       </div>
     </aside>
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
     <!-- MAIN CONTENT WRAPPER -->
     <main class="main-wrapper">
-      <!-- TOP HEADER -->
+      <!-- TOP HEADER (Cleaned: Headings removed, aligned with mobile toggle & notification bell) -->
       <header class="top-header">
-        <div class="header-left">
-          <div id="dashboardWelcomeBlock">
-            <h3>Welcome back,</h3>
-            <h1>WhatsApp Announcement System</h1>
-            <p>Official enterprise broadcast and real-time live communication center</p>
-          </div>
-          <div id="pageTitleBlock" style="display: none;">
-            <h1 id="pageTitle">Broadcasts</h1>
-            <p id="pageSubtitle">Dispatch and track official Meta WhatsApp announcements</p>
-          </div>
-        </div>
+        <button type="button" class="btn-icon-wrapper mobile-nav-toggle" id="btnToggleSidebar" title="Toggle Navigation Menu">
+          <i data-lucide="menu" style="width: 20px; height: 20px;"></i>
+        </button>
 
-        <div class="header-right">
+        <div class="header-right" style="margin-left: auto;">
           <!-- Notification Bell with real-time unread messages badge -->
           <div class="btn-icon-wrapper" id="notificationBellBtn" title="Incoming Messages & Replies" style="cursor: pointer;">
             <i data-lucide="bell" style="width: 20px; height: 20px;"></i>
@@ -295,14 +288,20 @@
 
           <!-- RIGHT: LIVE WHATSAPP MESSAGE PREVIEW (AUTHENTIC SMARTPHONE MOCKUP) -->
           <div class="dashboard-card preview-card-box" style="flex: 0.95;">
-            <div class="card-header" style="margin-bottom: 8px;">
+            <div class="card-header" style="margin-bottom: 12px;">
               <div class="card-title-group">
-                <i data-lucide="smartphone" style="color: #00a651; width: 18px; height: 18px;"></i>
-                <h3 style="font-size: 16px; font-weight: 700;">Live WhatsApp Preview</h3>
+                <div class="icon-bubble green">
+                  <i data-lucide="smartphone"></i>
+                </div>
+                <div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <h3 style="font-size: 17px; font-weight: 800;">Live WhatsApp Preview</h3>
+                    <span class="preview-badge">Official Format</span>
+                  </div>
+                  <p style="font-size: 12px; color: var(--text-muted);">Exact visual representation of what the employee receives on their smartphone.</p>
+                </div>
               </div>
-              <span class="preview-badge">Official Format</span>
             </div>
-            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Exact visual representation of what the employee receives on their smartphone.</p>
 
             <!-- PHONE FRAME -->
             <div class="phone-preview-frame">
@@ -777,6 +776,6 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=2.5.0"></script>
+  <script src="/js/app.js?v=2.6.0"></script>
 </body>
 </html>
