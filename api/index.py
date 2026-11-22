@@ -674,6 +674,7 @@ class BroadcastSendRequest(BaseModel):
 def send_broadcast(req: BroadcastSendRequest):
     employees = get_merged_employees()
     broadcasts = load_json("broadcasts.json", [])
+    messages_db = load_json("messages.json", {})
     
     # Filter target recipients
     if req.recipient_type == "department" and req.recipient_filter_value:
@@ -690,47 +691,130 @@ def send_broadcast(req: BroadcastSendRequest):
         recipients = employees
 
     recipient_count = len(recipients)
+    now_time = datetime.now(PKT_TZ).strftime("%I:%M %p")
     now_str = datetime.now(PKT_TZ).strftime("%b %d, %Y • %I:%M %p")
-    
-    # If test phone or employee or small target, trigger real Meta WhatsApp API call
-    real_dispatch_result = None
-    target_phone = req.test_number or (recipients[0]["phone"] if recipients else None)
-    
-    if target_phone and WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID:
-        try:
-            # Send message via Meta Cloud API
-            url = f"https://graph.facebook.com/v22.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
-            headers = {
-                "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
-                "Content-Type": "application/json"
-            }
-            
-            clean_phone = target_phone.replace("+", "").replace(" ", "").replace("-", "")
-            
-            if req.variables:
-                parameters = [{"type": "text", "text": str(v)} for v in req.variables]
-                components = [{"type": "body", "parameters": parameters}]
-            else:
-                components = []
+    today_iso = datetime.now(PKT_TZ).strftime("%Y-%m-%d")
+    sender_clean = "923306579717"
 
-            payload = {
-                "messaging_product": "whatsapp",
-                "to": clean_phone,
-                "type": "template",
-                "template": {
-                    "name": req.template_name,
-                    "language": {"code": req.template_language},
+    recipient_results = []
+    sent_count = 0
+    failed_count = 0
+
+    for emp in recipients:
+        raw_phone = emp.get("phone", "").strip()
+        clean_phone = raw_phone.replace("+", "").replace(" ", "").replace("-", "")
+        if not clean_phone:
+            continue
+
+        emp_name = emp.get("name", "Employee")
+
+        emp_vars = list(req.variables)
+        if emp_vars:
+            if req.recipient_type in ["all", "department"]:
+                emp_vars[0] = emp_name
+            parameters = [{"type": "text", "text": str(v)} for v in emp_vars]
+            components = [{"type": "body", "parameters": parameters}]
+        else:
+            components = []
+
+        if clean_phone == sender_clean:
+            msg_id = f"self_{int(time.time()*1000)}"
+            msg_obj = {
+                "id": msg_id,
+                "wamid": msg_id,
+                "phone": raw_phone,
+                "name": emp_name,
+                "department": emp.get("department", "HR"),
+                "status": "delivered",
+                "error": None,
+                "time": now_time,
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            }
+            recipient_results.append(msg_obj)
+            sent_count += 1
+            continue
+
+        msg_status = "sent"
+        msg_error = None
+        wamid = None
+
+        if WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID:
+            try:
+                url = f"https://graph.facebook.com/v22.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+                headers = {
+                    "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
+                    "Content-Type": "application/json"
                 }
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": clean_phone,
+                    "type": "template",
+                    "template": {
+                        "name": req.template_name,
+                        "language": {"code": req.template_language},
+                    }
+                }
+                if components:
+                    payload["template"]["components"] = components
+
+                r = requests.post(url, headers=headers, json=payload, timeout=8)
+                res_data = r.json()
+
+                if r.status_code in [200, 201] and "messages" in res_data:
+                    wamid = res_data["messages"][0].get("id")
+                    msg_status = "sent"
+                    sent_count += 1
+                else:
+                    msg_status = "failed"
+                    msg_error = res_data.get("error", {}).get("message", "Meta API Error")
+                    failed_count += 1
+            except Exception as e:
+                msg_status = "failed"
+                msg_error = str(e)
+                failed_count += 1
+        else:
+            msg_status = "delivered"
+            sent_count += 1
+
+        msg_id = wamid or f"msg_{int(time.time()*1000)}"
+        msg_obj = {
+            "id": msg_id,
+            "wamid": wamid,
+            "phone": raw_phone,
+            "name": emp_name,
+            "department": emp.get("department", "Operations"),
+            "status": msg_status,
+            "error": msg_error,
+            "time": now_time,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+        recipient_results.append(msg_obj)
+
+        chat_phone = raw_phone if raw_phone.startswith("+") else f"+{raw_phone}"
+        if chat_phone not in messages_db:
+            messages_db[chat_phone] = {
+                "employee_id": emp.get("id", "EMP-NEW"),
+                "name": emp_name,
+                "role": f"Employee • {emp.get('department', 'Staff')}",
+                "unread_count": 0,
+                "last_activity": now_time,
+                "messages": []
             }
-            if components:
-                payload["template"]["components"] = components
 
-            r = requests.post(url, headers=headers, json=payload, timeout=8)
-            real_dispatch_result = r.json()
-        except Exception as e:
-            real_dispatch_result = {"error": str(e)}
+        chat = messages_db[chat_phone]
+        chat["messages"].append({
+            "id": msg_id,
+            "direction": "outgoing",
+            "sender": "Al Haditha Energy",
+            "text": f"📢 [{req.template_name.replace('_', ' ').title()}]\n{req.body_text}",
+            "time": now_time,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "status": msg_status
+        })
+        chat["last_activity"] = now_time
 
-    # Record broadcast entry
+    save_json("messages.json", messages_db)
+
     if req.recipient_type == "all":
         rec_filter = f"All Employees ({recipient_count})"
     elif req.recipient_type == "department":
@@ -738,37 +822,152 @@ def send_broadcast(req: BroadcastSendRequest):
     elif req.recipient_type == "employee":
         emp_name = recipients[0].get("name", "Employee") if recipients else req.recipient_filter_value
         rec_filter = f"Employee ({emp_name})"
-    elif req.recipient_type == "custom":
-        rec_filter = f"Custom ({target_phone})"
     else:
         rec_filter = f"By {req.recipient_type.title()} ({recipient_count})"
 
     new_broadcast = {
         "id": f"BC-{1000 + len(broadcasts) + 1}",
         "date": now_str,
+        "date_iso": today_iso,
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "template": req.template_name.replace("_", " ").title(),
         "template_name": req.template_name,
         "content": req.body_text,
         "recipients_count": recipient_count,
         "recipient_filter": rec_filter,
-        "recipient_phone": target_phone if req.recipient_type in ["employee", "custom"] else None,
-        "status": "Completed",
-        "delivered_pct": 98.2,
-        "read_pct": 91.5,
+        "recipient_phone": recipients[0]["phone"] if req.recipient_type == "employee" and recipients else None,
+        "status": "Completed" if failed_count == 0 else f"{sent_count} Dispatched, {failed_count} Failed",
+        "delivered_pct": round(((sent_count) / recipient_count) * 100, 1) if recipient_count > 0 else 100,
+        "read_pct": 0,
         "replies_count": 0,
-        "meta_api_response": real_dispatch_result
+        "sent_count": sent_count,
+        "failed_count": failed_count,
+        "messages": recipient_results
     }
-    
+
     broadcasts.insert(0, new_broadcast)
     save_json("broadcasts.json", broadcasts)
-    
+
     return {
         "success": True,
         "broadcast": new_broadcast,
-        "message": f"Broadcast successfully dispatched to {rec_filter}!"
+        "sent_count": sent_count,
+        "failed_count": failed_count,
+        "message": f"Broadcast dispatched! {sent_count} sent, {failed_count} failed."
     }
 
+@app.get("/api/broadcasts/tracker")
+@app.get("/broadcasts/tracker")
+def get_broadcasts_tracker(
+    broadcast_id: str = None,
+    date: str = None,
+    status: str = None,
+    search: str = None
+):
+    broadcasts = load_json("broadcasts.json", [])
+    records = []
+
+    today_iso = datetime.now(PKT_TZ).strftime("%Y-%m-%d")
+    yesterday_iso = (datetime.now(PKT_TZ) - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    total_delivered = 0
+    total_read = 0
+    total_replied = 0
+    total_failed = 0
+    total_sent = 0
+
+    for b in broadcasts:
+        b_id = b.get("id", "BC-LIVE")
+        b_template = b.get("template", "Announcement")
+        b_date = b.get("date", "")
+        b_date_iso = b.get("date_iso") or (b.get("timestamp")[:10] if b.get("timestamp") else today_iso)
+
+        msgs = b.get("messages", [])
+        if not msgs:
+            err = b.get("meta_api_response", {}).get("error", {})
+            err_msg = err.get("message") if isinstance(err, dict) else None
+            st = "failed" if err_msg else ("delivered" if "Completed" in str(b.get("status")) else "sent")
+            msgs = [{
+                "id": f"{b_id}_1",
+                "phone": b.get("recipient_phone") or "Employees",
+                "name": b.get("recipient_filter", "All Staff"),
+                "department": "All",
+                "status": st,
+                "error": err_msg,
+                "time": b.get("date", "").split("•")[-1].strip() if "•" in b.get("date", "") else "12:00 PM"
+            }]
+
+        for m in msgs:
+            m_status = (m.get("status") or "sent").lower()
+            if m_status == "sent":
+                total_sent += 1
+            elif m_status == "delivered":
+                total_delivered += 1
+            elif m_status in ["read", "seen"]:
+                total_read += 1
+            elif m_status == "replied":
+                total_replied += 1
+            elif m_status == "failed":
+                total_failed += 1
+
+            rec = {
+                "broadcast_id": b_id,
+                "template": b_template,
+                "broadcast_date": b_date,
+                "date_iso": b_date_iso,
+                "id": m.get("id"),
+                "wamid": m.get("wamid"),
+                "name": m.get("name", "Employee"),
+                "phone": m.get("phone", ""),
+                "department": m.get("department", "Operations"),
+                "status": m_status,
+                "error": m.get("error"),
+                "time": m.get("time", "")
+            }
+            records.append(rec)
+
+    filtered = records
+    if broadcast_id and broadcast_id != "all":
+        filtered = [r for r in filtered if r["broadcast_id"] == broadcast_id]
+
+    if date and date != "all":
+        if date == "today":
+            filtered = [r for r in filtered if r["date_iso"] == today_iso]
+        elif date == "yesterday":
+            filtered = [r for r in filtered if r["date_iso"] == yesterday_iso]
+        else:
+            filtered = [r for r in filtered if r["date_iso"] == date]
+
+    if status and status != "all":
+        target_st = status.lower()
+        if target_st in ["read", "seen"]:
+            filtered = [r for r in filtered if r["status"] in ["read", "seen"]]
+        else:
+            filtered = [r for r in filtered if r["status"] == target_st]
+
+    if search:
+        s = search.lower().strip()
+        filtered = [
+            r for r in filtered
+            if s in r["name"].lower() or s in r["phone"].lower() or s in r["broadcast_id"].lower()
+        ]
+
+    broadcast_options = [
+        {"id": b["id"], "template": b.get("template", "Broadcast"), "date": b.get("date", "")}
+        for b in broadcasts
+    ]
+
+    return {
+        "summary": {
+            "total_sent": total_sent + total_delivered + total_read + total_replied + total_failed,
+            "delivered": total_delivered,
+            "read": total_read,
+            "replied": total_replied,
+            "failed": total_failed
+        },
+        "broadcast_options": broadcast_options,
+        "records": filtered
+    }
 
 # --- 6. LIVE CHAT & CONVERSATIONS ---
 @app.get("/api/chats")
@@ -934,6 +1133,8 @@ async def receive_webhook(request: Request):
         messages_db = load_json("messages.json", {})
         employees = load_json("employees.json", [])
         emp_lookup = {e.get("phone", "").replace("+", "").replace(" ", ""): e for e in employees}
+        broadcasts = load_json("broadcasts.json", [])
+        broadcasts_changed = False
         
         for value in values_to_process:
             contacts = value.get("contacts") or body.get("contacts") or []
@@ -983,7 +1184,15 @@ async def receive_webhook(request: Request):
                 messages_db[sender_phone]["unread_count"] += 1
                 messages_db[sender_phone]["last_activity"] = now_time
 
-            # 2. Check for status updates (sent / delivered / read)
+                # Mark corresponding broadcast recipient status as 'replied'
+                for b in broadcasts:
+                    for bm in b.get("messages", []):
+                        bm_clean = str(bm.get("phone", "")).lstrip("+").replace(" ", "")
+                        if bm_clean == clean_sender:
+                            bm["status"] = "replied"
+                            broadcasts_changed = True
+
+            # 2. Check for status updates (sent / delivered / read / failed)
             for status_update in value.get("statuses", []):
                 raw_recipient = str(status_update.get("recipient_id", "")).lstrip("+")
                 recipient_phone = f"+{raw_recipient}"
@@ -994,6 +1203,27 @@ async def receive_webhook(request: Request):
                         if m.get("id") == msg_id:
                             m["status"] = status_val
                             break
+
+                # Also update broadcast recipient messages tracker
+                for b in broadcasts:
+                    for bm in b.get("messages", []):
+                        if bm.get("wamid") == msg_id or bm.get("id") == msg_id:
+                            if bm.get("status") != "replied":
+                                bm["status"] = status_val
+                            broadcasts_changed = True
+
+        if broadcasts_changed:
+            for b in broadcasts:
+                b_msgs = b.get("messages", [])
+                if b_msgs:
+                    tot = len(b_msgs)
+                    deliv = sum(1 for m in b_msgs if m.get("status") in ["delivered", "read", "seen", "replied"])
+                    read_cnt = sum(1 for m in b_msgs if m.get("status") in ["read", "seen", "replied"])
+                    replied_cnt = sum(1 for m in b_msgs if m.get("status") == "replied")
+                    b["delivered_pct"] = round((deliv / tot) * 100, 1)
+                    b["read_pct"] = round((read_cnt / tot) * 100, 1)
+                    b["replies_count"] = replied_cnt
+            save_json("broadcasts.json", broadcasts)
 
         save_json("messages.json", messages_db)
         return {"status": "success"}

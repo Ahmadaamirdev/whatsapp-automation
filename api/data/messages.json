@@ -1,1 +1,138 @@
-{}
+{
+  "+16315551181": {
+    "employee_id": "EMP-NEW",
+    "name": "test user name",
+    "role": "Employee • WhatsApp Contact",
+    "unread_count": 0,
+    "last_activity": "11:14 PM",
+    "messages": [
+      {
+        "id": "ABGGFlA5Fpa",
+        "direction": "incoming",
+        "sender": "test user name",
+        "text": "this is a text message",
+        "time": "11:14 PM",
+        "timestamp": "2026-11-21T18:14:21.513227Z"
+      }
+    ],
+    "phone": "+16315551181"
+  },
+  "+923104220217": {
+    "employee_id": "EMP-NEW",
+    "name": "Ali Musa",
+    "role": "Employee • WhatsApp Contact",
+    "unread_count": 1,
+    "last_activity": "12:28 PM",
+    "messages": [
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAEhggQUM5NDAwQTIyOTg1NDE0MkM5RUUzOUI2NzNFNzZGNzIA",
+        "direction": "incoming",
+        "sender": "Ali Musa",
+        "text": "Hi",
+        "time": "11:21 PM",
+        "timestamp": "2026-11-21T18:21:46.486337Z"
+      },
+      {
+        "id": "m_1795285481155",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "hello",
+        "time": "11:24 PM",
+        "timestamp": "2026-11-21T18:24:41.155534Z",
+        "status": "delivered"
+      },
+      {
+        "id": "m_1795285749648",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "Hello Ali Musa, this is a live test reply from your Al-Haditha WhatsApp system!",
+        "time": "11:29 PM",
+        "timestamp": "2026-11-21T18:29:09.648147Z",
+        "status": "delivered"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSNzAwQjAzMEMwNUM1NzRENTdDAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "Hello Ali Musa! Testing your WhatsApp connection from live dashboard.",
+        "time": "11:32 PM",
+        "timestamp": "2026-11-21T18:32:07.284736Z",
+        "status": "read"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSQjAwQ0UxNkY3MTIxREQ4MzdBAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "ok",
+        "time": "11:33 PM",
+        "timestamp": "2026-11-21T18:33:00.982692Z",
+        "status": "delivered"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSQTg0ODZDOEVEM0FGRjQ0ODFCAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "ok",
+        "time": "11:49 PM",
+        "timestamp": "2026-11-21T18:49:09.985850Z",
+        "status": "read"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSMkNCODc2RTczOTVBQzhFMUM0AA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ali Musa, please be advised of the following announcement regarding Safety Notice: Wear PPE helmet at construction sites at all times. Thank you for your cooperation.",
+        "time": "12:28 PM",
+        "timestamp": "2026-11-22T07:28:04.365843Z",
+        "status": "delivered"
+      },
+      {
+        "id": "wamid.INCOMING_TEST_REPLY_1",
+        "direction": "incoming",
+        "sender": "Ali Musa",
+        "text": "Received and noted, thank you!",
+        "time": "12:28 PM",
+        "timestamp": "2026-11-22T07:28:54.267361Z"
+      }
+    ],
+    "phone": "+923104220217"
+  },
+  "+923087786638": {
+    "employee_id": "EMP-1001",
+    "name": "Employee",
+    "role": "Employee",
+    "unread_count": 0,
+    "last_activity": "11:43 PM",
+    "messages": [
+      {
+        "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSMENCRkFCNUIwODk1RkIxM0NDAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "hi",
+        "time": "11:43 PM",
+        "timestamp": "2026-11-21T18:43:53.596768Z",
+        "status": "sent"
+      }
+    ],
+    "phone": "+923087786638"
+  },
+  "+923124494540": {
+    "employee_id": "EMP-1001",
+    "name": "Employee",
+    "role": "Employee",
+    "unread_count": 0,
+    "last_activity": "11:48 PM",
+    "messages": [
+      {
+        "id": "wamid.HBgMOTIzMTI0NDk0NTQwFQIAERgSNTQ3QjRBNDFBRkU4QUI0NkJGAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "emaad",
+        "time": "11:48 PM",
+        "timestamp": "2026-11-21T18:48:01.445295Z",
+        "status": "delivered"
+      }
+    ],
+    "phone": "+923124494540"
+  }
+}

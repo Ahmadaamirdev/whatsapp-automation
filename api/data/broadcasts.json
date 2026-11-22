@@ -1,1 +1,60 @@
-[]
+[
+  {
+    "id": "BC-1002",
+    "date": "Nov 22, 2026 • 12:28 PM",
+    "date_iso": "2026-11-22",
+    "timestamp": "2026-11-22T07:28:06.499226Z",
+    "template": "Staff Official Notice",
+    "template_name": "staff_official_notice",
+    "content": "Dear Ali Musa, please be advised of the following announcement regarding Safety Notice: Wear PPE helmet at construction sites at all times. Thank you for your cooperation.",
+    "recipients_count": 1,
+    "recipient_filter": "Employee (Ali Musa)",
+    "recipient_phone": "+923104220217",
+    "status": "Completed",
+    "delivered_pct": 100.0,
+    "read_pct": 100.0,
+    "replies_count": 1,
+    "sent_count": 1,
+    "failed_count": 0,
+    "messages": [
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSMkNCODc2RTczOTVBQzhFMUM0AA==",
+        "wamid": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSMkNCODc2RTczOTVBQzhFMUM0AA==",
+        "phone": "+923104220217",
+        "name": "Ali Musa",
+        "department": "Operations",
+        "status": "replied",
+        "error": null,
+        "time": "12:28 PM",
+        "timestamp": "2026-11-22T07:28:04.365843Z"
+      }
+    ]
+  },
+  {
+    "id": "BC-1006",
+    "date": "Nov 22, 2026 • 11:54 AM",
+    "timestamp": "2026-11-22T06:54:52.019524Z",
+    "template": "Staff Official Notice",
+    "template_name": "staff_official_notice",
+    "content": "Dear Ahmed Raza, please be advised of the following announcement regarding Office Timings Update:Thursday working hours will conclude at 2:00 PM.Thank you for your cooperation.",
+    "recipients_count": 5,
+    "recipient_filter": "All Employees (5)",
+    "recipient_phone": null,
+    "status": "Completed",
+    "delivered_pct": 98.2,
+    "read_pct": 91.5,
+    "replies_count": 0,
+    "meta_api_response": {
+      "error": {
+        "message": "(#100) Invalid parameter",
+        "code": 100,
+        "type": "OAuthException",
+        "error_data": {
+          "messaging_product": "whatsapp",
+          "details": "Invalid parameter"
+        },
+        "fbtrace_id": "A9R39NGEFqqEi2AUDy3oHSe"
+      }
+    }
+  }
+]

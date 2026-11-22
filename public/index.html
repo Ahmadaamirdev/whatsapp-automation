@@ -386,6 +386,113 @@
             </table>
           </div>
         </div>
+
+        <!-- BROADCAST MESSAGE DELIVERY TRACKER MODULE -->
+        <div class="dashboard-card" style="margin-top: 18px;" id="broadcastTrackerCard">
+          <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
+            <div class="card-title-group">
+              <div class="icon-bubble green">
+                <i data-lucide="activity"></i>
+              </div>
+              <div>
+                <h3 style="font-size: 18px; font-weight: 800;">Broadcast Message Delivery Tracker</h3>
+                <p style="font-size: 12px; color: var(--text-muted);">Real-time recipient delivery tracking: Sent, Delivered, Seen / Read, Replied, and Failed with filter controls.</p>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <button type="button" id="btnRefreshTracker" class="btn-action-view" style="display: flex; align-items: center; gap: 6px; padding: 7px 14px; font-weight: 600; cursor: pointer;">
+                <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
+                <span>Refresh Live Status</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- SUMMARY COUNTER METRICS STRIP -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: #64748b; font-weight: 600;">Total Sent</span>
+              <span id="trackerKpiTotal" style="font-size: 16px; font-weight: 800; color: #0f172a;">0</span>
+            </div>
+            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: #065f46; font-weight: 600;">Delivered</span>
+              <span id="trackerKpiDelivered" style="font-size: 16px; font-weight: 800; color: #059669;">0</span>
+            </div>
+            <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: #0369a1; font-weight: 600;">Seen / Read</span>
+              <span id="trackerKpiRead" style="font-size: 16px; font-weight: 800; color: #0284c7;">0</span>
+            </div>
+            <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: #6b21a8; font-weight: 600;">Replied</span>
+              <span id="trackerKpiReplied" style="font-size: 16px; font-weight: 800; color: #9333ea;">0</span>
+            </div>
+            <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 12px; color: #9f1239; font-weight: 600;">Failed</span>
+              <span id="trackerKpiFailed" style="font-size: 16px; font-weight: 800; color: #e11d48;">0</span>
+            </div>
+          </div>
+
+          <!-- TRACKER FILTERS ROW -->
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; background: #ffffff; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <!-- Broadcast Filter -->
+            <div style="flex: 1.2; min-width: 170px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 4px;">Broadcast Campaign</label>
+              <select id="trackerBroadcastFilter" class="form-select" style="width: 100%; font-size: 12px; padding: 6px 10px;">
+                <option value="all">All Broadcasts</option>
+              </select>
+            </div>
+
+            <!-- Date Filter -->
+            <div style="flex: 1; min-width: 130px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 4px;">Date Filter</label>
+              <select id="trackerDateFilter" class="form-select" style="width: 100%; font-size: 12px; padding: 6px 10px;">
+                <option value="all">All Dates</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+              </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div style="flex: 1; min-width: 130px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 4px;">Delivery Status</label>
+              <select id="trackerStatusFilter" class="form-select" style="width: 100%; font-size: 12px; padding: 6px 10px;">
+                <option value="all">All Statuses</option>
+                <option value="delivered">Delivered</option>
+                <option value="read">Seen / Read</option>
+                <option value="replied">Replied</option>
+                <option value="failed">Failed</option>
+                <option value="sent">Sent / In-Transit</option>
+              </select>
+            </div>
+
+            <!-- Search Filter -->
+            <div style="flex: 1.5; min-width: 200px;">
+              <label style="display: block; font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 4px;">Search Recipient</label>
+              <input type="text" id="trackerSearchInput" class="form-input" placeholder="Search name or phone..." style="width: 100%; font-size: 12px; padding: 6px 10px;">
+            </div>
+          </div>
+
+          <!-- DETAILED RECIPIENT STATUSES TABLE -->
+          <div class="table-responsive">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Broadcast / ID</th>
+                  <th>Recipient Name</th>
+                  <th>WhatsApp Number</th>
+                  <th>Department</th>
+                  <th>Dispatch Time</th>
+                  <th>Message Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="trackerTableBody">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       <!-- VIEW: EMPLOYEES DIRECTORY -->
@@ -670,6 +777,6 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=2.3.0"></script>
+  <script src="/js/app.js?v=2.5.0"></script>
 </body>
 </html>

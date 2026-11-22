@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadBroadcastRecipients();
   setupWhatsAppWebMessaging();
   setupTemplateModal();
+  setupBroadcastTracker();
+  loadTrackerLogs();
 
   // Bell icon click -> navigate to Messages
   const bell = document.getElementById('notificationBellBtn');
@@ -32,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
   pollingInterval = setInterval(() => {
     loadChats(false);
     loadMetrics();
+    if (currentTab === 'broadcasts') { loadTrackerLogs(); }
   }, 3000);
 });
 
@@ -290,6 +293,153 @@ if (bSearch) bSearch.addEventListener('input', () => renderFullBroadcasts(allBro
 
 const bStatus = document.getElementById('broadcastFilterStatus');
 if (bStatus) bStatus.addEventListener('change', () => renderFullBroadcasts(allBroadcasts));
+
+
+
+// --- 2.5 BROADCAST DELIVERY STATUS TRACKER ---
+let trackerFilterDebounceTimer = null;
+
+async function loadTrackerLogs() {
+  const tableBody = document.getElementById('trackerTableBody');
+  if (!tableBody) return;
+
+  const bcSelect = document.getElementById('trackerBroadcastFilter');
+  const dateSelect = document.getElementById('trackerDateFilter');
+  const statusSelect = document.getElementById('trackerStatusFilter');
+  const searchInput = document.getElementById('trackerSearchInput');
+
+  const bcId = bcSelect ? bcSelect.value : 'all';
+  const dateVal = dateSelect ? dateSelect.value : 'all';
+  const statusVal = statusSelect ? statusSelect.value : 'all';
+  const searchVal = searchInput ? searchInput.value.trim() : '';
+
+  try {
+    const params = new URLSearchParams();
+    if (bcId && bcId !== 'all') params.append('broadcast_id', bcId);
+    if (dateVal && dateVal !== 'all') params.append('date', dateVal);
+    if (statusVal && statusVal !== 'all') params.append('status', statusVal);
+    if (searchVal) params.append('search', searchVal);
+
+    const res = await fetch(`/api/broadcasts/tracker?${params.toString()}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // 1. Update Summary KPI Counters
+    const kpiTotal = document.getElementById('trackerKpiTotal');
+    const kpiDelivered = document.getElementById('trackerKpiDelivered');
+    const kpiRead = document.getElementById('trackerKpiRead');
+    const kpiReplied = document.getElementById('trackerKpiReplied');
+    const kpiFailed = document.getElementById('trackerKpiFailed');
+
+    if (data.summary) {
+      if (kpiTotal) kpiTotal.textContent = data.summary.total_sent || 0;
+      if (kpiDelivered) kpiDelivered.textContent = data.summary.delivered || 0;
+      if (kpiRead) kpiRead.textContent = data.summary.read || 0;
+      if (kpiReplied) kpiReplied.textContent = data.summary.replied || 0;
+      if (kpiFailed) kpiFailed.textContent = data.summary.failed || 0;
+    }
+
+    // 2. Populate Broadcast Filter Dropdown if count changed
+    if (bcSelect && data.broadcast_options) {
+      const currentSelected = bcSelect.value;
+      const existingOptionsCount = bcSelect.options.length - 1;
+      if (existingOptionsCount !== data.broadcast_options.length) {
+        bcSelect.innerHTML = '<option value="all">All Broadcasts</option>';
+        data.broadcast_options.forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b.id;
+          opt.textContent = `${b.id} • ${b.template} (${b.date})`;
+          bcSelect.appendChild(opt);
+        });
+        bcSelect.value = currentSelected || 'all';
+      }
+    }
+
+    // 3. Render Recipient Delivery Rows
+    const records = data.records || [];
+    tableBody.innerHTML = '';
+
+    if (records.length === 0) {
+      tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8; padding:24px;">No recipient delivery logs match the selected filters.</td></tr>`;
+      return;
+    }
+
+    records.forEach(r => {
+      const tr = document.createElement('tr');
+      const st = (r.status || 'sent').toLowerCase();
+
+      let badgeHtml = '';
+      if (st === 'delivered') {
+        badgeHtml = `<span class="status-pill" style="background:#dcfce7; color:#15803d; font-weight:700;"><span class="badge-dot" style="background:#22c55e;"></span>Delivered ✓✓</span>`;
+      } else if (st === 'read' || st === 'seen') {
+        badgeHtml = `<span class="status-pill" style="background:#e0f2fe; color:#0369a1; font-weight:700;"><span class="badge-dot" style="background:#0284c7;"></span>Seen ✓✓</span>`;
+      } else if (st === 'replied') {
+        badgeHtml = `<span class="status-pill" style="background:#f3e8ff; color:#7e22ce; font-weight:700;"><span class="badge-dot" style="background:#9333ea;"></span>Replied 💬</span>`;
+      } else if (st === 'failed') {
+        badgeHtml = `<span class="status-pill" style="background:#ffe4e6; color:#be123c; font-weight:700;" title="${r.error || 'Meta API delivery failed'}"><span class="badge-dot" style="background:#e11d48;"></span>Failed ⚠️</span>`;
+      } else {
+        badgeHtml = `<span class="status-pill" style="background:#fef3c7; color:#b45309; font-weight:700;"><span class="badge-dot" style="background:#f59e0b;"></span>Sent ✓</span>`;
+      }
+
+      const initial = (r.name || 'E').charAt(0).toUpperCase();
+
+      tr.innerHTML = `
+        <td>
+          <div style="font-weight:700; color:#0f172a; font-size:12px;">${r.broadcast_id || 'BC'}</div>
+          <div style="font-size:11px; color:#64748b;">${r.template || 'Announcement'}</div>
+        </td>
+        <td>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:26px; height:26px; border-radius:50%; background:#e2e8f0; color:#334155; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;">${initial}</div>
+            <span style="font-weight:600; color:#1e293b;">${r.name || 'Staff Member'}</span>
+          </div>
+        </td>
+        <td style="font-family:monospace; font-size:12px; color:#334155;">${r.phone || '-'}</td>
+        <td><span style="font-size:11px; background:#f1f5f9; padding:3px 8px; border-radius:4px; color:#475569; font-weight:600;">${r.department || 'Operations'}</span></td>
+        <td style="font-size:12px; color:#64748b;">${r.time || '12:00 PM'}</td>
+        <td>${badgeHtml}</td>
+        <td>
+          <button class="btn-action-view" onclick="openChatWithEmployee('${r.phone || ''}', '${r.name || ''}')" style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:4px 8px; cursor:pointer;">
+            <i data-lucide="message-square" style="width:12px; height:12px;"></i>
+            <span>Chat</span>
+          </button>
+        </td>
+      `;
+      tableBody.appendChild(tr);
+    });
+
+    initIcons();
+  } catch (err) {
+    console.error('Error loading tracker logs:', err);
+  }
+}
+
+function setupBroadcastTracker() {
+  const bcSelect = document.getElementById('trackerBroadcastFilter');
+  const dateSelect = document.getElementById('trackerDateFilter');
+  const statusSelect = document.getElementById('trackerStatusFilter');
+  const searchInput = document.getElementById('trackerSearchInput');
+  const refreshBtn = document.getElementById('btnRefreshTracker');
+
+  if (bcSelect) bcSelect.addEventListener('change', () => loadTrackerLogs());
+  if (dateSelect) dateSelect.addEventListener('change', () => loadTrackerLogs());
+  if (statusSelect) statusSelect.addEventListener('change', () => loadTrackerLogs());
+
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      clearTimeout(trackerFilterDebounceTimer);
+      trackerFilterDebounceTimer = setTimeout(() => {
+        loadTrackerLogs();
+      }, 250);
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      loadTrackerLogs();
+    });
+  }
+}
 
 
 // --- 3. BROADCAST STUDIO & LIVE PREVIEW ---
@@ -684,6 +834,7 @@ async function handleSendBroadcast() {
       }
       loadBroadcasts();
       loadMetrics();
+      loadTrackerLogs();
     } else {
       alert(`Meta Broadcast Error: ${data.message || JSON.stringify(data)}`);
     }
