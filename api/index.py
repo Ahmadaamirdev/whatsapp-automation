@@ -1120,8 +1120,15 @@ def send_broadcast(req: BroadcastSendRequest):
     else:
         rec_filter = f"By {req.recipient_type.title()} ({recipient_count})"
 
+    existing_nums = []
+    for b in broadcasts:
+        m_num = re.search(r'(\d+)', str(b.get("id", "")))
+        if m_num:
+            existing_nums.append(int(m_num.group(1)))
+    next_bc_num = max(existing_nums, default=1000) + 1
+
     new_broadcast = {
-        "id": f"BC-{1000 + len(broadcasts) + 1}",
+        "id": f"BC-{next_bc_num}",
         "date": now_str,
         "date_iso": today_iso,
         "timestamp": datetime.utcnow().isoformat() + "Z",

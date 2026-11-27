@@ -254,7 +254,7 @@ function renderDashboardBroadcasts(list) {
       <td>${bc.date || 'Recent'}</td>
       <td style="font-weight: 700; color: #0f172a;">${bc.template || 'Announcement'}</td>
       <td>${Number(bc.recipients_count || 1).toLocaleString()} (${bc.recipient_filter || 'Recipients'})</td>
-      <td style="font-weight: 700; color: #00a651;">${bc.delivered_pct || 98.2}%</td>
+      <td style="font-weight: 700; color: ${(bc.delivered_pct ?? 100) > 0 ? '#00a651' : '#dc2626'};">${bc.delivered_pct !== undefined && bc.delivered_pct !== null ? bc.delivered_pct : 0}%</td>
       <td style="color: #0284c7; font-weight: 600;">${bc.read_pct || 91.5}%</td>
       <td><span class="status-badge active"><span class="badge-dot"></span>${bc.status || 'Completed'}</span></td>
       <td>
