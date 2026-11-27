@@ -1472,11 +1472,26 @@ async def receive_webhook(request: Request):
                 sender_phone = f"+{clean_sender}"
                 
                 text_body = ""
+                in_media_id = None
+                in_media_type = None
+                in_media_url = None
+                in_filename = None
                 msg_type = msg.get("type", "text")
+
                 if msg_type == "text":
                     text_body = msg.get("text", {}).get("body", "")
                 elif msg_type == "button":
                     text_body = msg.get("button", {}).get("text", "")
+                elif msg_type in ["image", "video", "document", "sticker", "audio"]:
+                    media_obj = msg.get(msg_type, {})
+                    in_media_id = media_obj.get("id")
+                    in_media_type = msg_type
+                    if in_media_id:
+                        in_media_url = f"/api/media/{in_media_id}"
+                    text_body = media_obj.get("caption", "")
+                    in_filename = media_obj.get("filename")
+                    if msg_type == "document" and in_filename and not text_body:
+                        text_body = in_filename
                 else:
                     text_body = f"[{msg_type} message]" if not msg.get("text") else msg.get("text", {}).get("body", "")
 
@@ -1498,14 +1513,21 @@ async def receive_webhook(request: Request):
 
                 now_time = datetime.now(PKT_TZ).strftime("%I:%M %p")
                 messages_db[sender_phone]["name"] = emp_name
-                messages_db[sender_phone]["messages"].append({
+                in_msg_entry = {
                     "id": msg.get("id", str(time.time())),
                     "direction": "incoming",
                     "sender": emp_name,
                     "text": text_body,
                     "time": now_time,
                     "timestamp": datetime.utcnow().isoformat() + "Z"
-                })
+                }
+                if in_media_url:
+                    in_msg_entry["media_url"] = in_media_url
+                    in_msg_entry["media_type"] = in_media_type
+                    in_msg_entry["media_id"] = in_media_id
+                if in_filename:
+                    in_msg_entry["filename"] = in_filename
+                messages_db[sender_phone]["messages"].append(in_msg_entry)
                 messages_db[sender_phone]["unread_count"] += 1
                 messages_db[sender_phone]["last_activity"] = now_time
 
@@ -1646,6 +1668,38 @@ async def upload_file(file: UploadFile = File(...)):
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+@app.get("/api/media/{media_id}")
+@app.get("/media/{media_id}")
+def proxy_whatsapp_media(media_id: str):
+    """Fetches and streams inbound WhatsApp media (images, videos, stickers, audio, documents) from Meta Graph API."""
+    if not WHATSAPP_ACCESS_TOKEN:
+        raise HTTPException(status_code=500, detail="Missing WhatsApp access token")
+    try:
+        headers = {"Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}"}
+        meta_res = requests.get(f"https://graph.facebook.com/v22.0/{media_id}", headers=headers, timeout=10)
+        if meta_res.status_code != 200:
+            raise HTTPException(status_code=404, detail="Media not found or expired on Meta")
+        meta_json = meta_res.json()
+        dl_url = meta_json.get("url")
+        mime_type = meta_json.get("mime_type", "application/octet-stream")
+        if not dl_url:
+            raise HTTPException(status_code=404, detail="Media download URL missing")
+
+        file_res = requests.get(dl_url, headers=headers, timeout=20)
+        if file_res.status_code != 200:
+            raise HTTPException(status_code=502, detail="Failed to download media from Meta")
+
+        return Response(
+            content=file_res.content,
+            media_type=mime_type,
+            headers={"Cache-Control": "public, max-age=86400"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static_dir")

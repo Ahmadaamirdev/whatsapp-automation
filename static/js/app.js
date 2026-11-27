@@ -1521,6 +1521,16 @@ async function loadActiveChat(phone, scrollBottom = false) {
                     <span>📷</span><span>Image attachment</span>
                   </div>
                 </div>`;
+            } else if (mType === 'sticker') {
+              mediaHtml = `
+                <div style="margin-bottom: 4px; max-width: 150px;">
+                  <img src="${m.media_url}" alt="Sticker" style="width: 140px; height: 140px; object-fit: contain; display: block; cursor: pointer;" onclick="window.open('${m.media_url}', '_blank')">
+                </div>`;
+            } else if (mType === 'audio') {
+              mediaHtml = `
+                <div style="margin-bottom: 6px; min-width: 240px;">
+                  <audio src="${m.media_url}" controls style="width: 100%; height: 36px;"></audio>
+                </div>`;
             } else if (mType === 'video') {
               mediaHtml = `
                 <div style="position: relative; border-radius: 8px; overflow: hidden; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); background: #000; max-width: 320px;">
