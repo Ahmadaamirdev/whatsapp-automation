@@ -153,6 +153,9 @@ def load_json(filename: str, default: Any = None):
                         doc_clean = {k: v for k, v in d.items() if k != "_id"}
                         res[phone] = doc_clean
                 return res
+            elif filename == DELETED_EMPLOYEES_FILE:
+                docs = list(database["deleted_employees"].find({}, {"_id": 0}))
+                return [d.get("id") for d in docs if d.get("id")]
             elif filename == AUDIT_FILE:
                 docs = list(database["template_audit"].find({}))
                 res = {}
@@ -660,22 +663,48 @@ def create_template(tpl: TemplateCreateRequest):
 # --- 4. EMPLOYEES DIRECTORY & SYNC WITH MESSAGES ---
 DELETED_EMPLOYEES_FILE = "deleted_employees.json"
 
+def _norm_digits(val: Optional[str]) -> str:
+    return "".join(c for c in str(val or "") if c.isdigit())
+
 def get_deleted_employee_ids():
-    deleted = load_json(DELETED_EMPLOYEES_FILE, [])
-    return set(deleted) if isinstance(deleted, list) else set()
+    raw_deleted = load_json(DELETED_EMPLOYEES_FILE, [])
+    result = set()
+    if isinstance(raw_deleted, list):
+        for item in raw_deleted:
+            if item:
+                s = str(item).strip()
+                result.add(s)
+                digits = _norm_digits(s)
+                if len(digits) >= 7:
+                    result.add(digits)
+                    result.add(f"+{digits}")
+    return result
 
 def record_deleted_employee(emp_id: str, phone: Optional[str] = None):
-    deleted = list(get_deleted_employee_ids())
+    raw_deleted = load_json(DELETED_EMPLOYEES_FILE, [])
+    if not isinstance(raw_deleted, list):
+        raw_deleted = []
+    items_to_record = []
     for item in [emp_id, phone]:
-        if item and item not in deleted:
-            deleted.append(item)
-    save_json(DELETED_EMPLOYEES_FILE, deleted)
-    if db is not None:
+        if item:
+            s = str(item).strip()
+            items_to_record.append(s)
+            digits = _norm_digits(s)
+            if len(digits) >= 7:
+                items_to_record.append(digits)
+                items_to_record.append(f"+{digits}")
+
+    for item in items_to_record:
+        if item not in raw_deleted:
+            raw_deleted.append(item)
+    save_json(DELETED_EMPLOYEES_FILE, raw_deleted)
+
+    database = get_db()
+    if database is not None:
         try:
-            for item in [emp_id, phone]:
-                if item:
-                    db["deleted_employees"].replace_one({"id": item}, {"id": item}, upsert=True)
-                    db["employees"].delete_many({"$or": [{"id": item}, {"phone": item}]})
+            for item in items_to_record:
+                database["deleted_employees"].replace_one({"id": item}, {"id": item}, upsert=True)
+                database["employees"].delete_many({"$or": [{"id": item}, {"phone": item}]})
         except Exception as e:
             print(f"[MONGODB ERROR] recording deleted employee: {e}")
 
@@ -683,7 +712,12 @@ def get_merged_employees():
     """Returns all employees, automatically merging contacts from messages as employees."""
     deleted_ids = get_deleted_employee_ids()
     raw_employees = load_json("employees.json", [])
-    employees = [e for e in raw_employees if e.get("id") not in deleted_ids and e.get("phone") not in deleted_ids]
+    employees = [
+        e for e in raw_employees
+        if e.get("id") not in deleted_ids
+        and e.get("phone") not in deleted_ids
+        and _norm_digits(e.get("phone")) not in deleted_ids
+    ]
 
     existing_clean_phones = set()
     for e in employees:
@@ -812,8 +846,33 @@ def add_employee(req: EmployeeCreateRequest):
     clean_digits = "".join([c for c in phone if c.isdigit()])
     formatted_phone = f"+{clean_digits}"
 
+    # Un-delete if this phone was previously deleted
+    raw_deleted = load_json(DELETED_EMPLOYEES_FILE, [])
+    if isinstance(raw_deleted, list):
+        filtered_del = [d for d in raw_deleted if _norm_digits(d) != clean_digits and d != formatted_phone]
+        if len(filtered_del) != len(raw_deleted):
+            save_json(DELETED_EMPLOYEES_FILE, filtered_del)
+    database = get_db()
+    if database is not None:
+        try:
+            database["deleted_employees"].delete_many({"id": {"$in": [clean_digits, formatted_phone]}})
+        except Exception:
+            pass
+
     employees = load_json("employees.json", [])
-    new_id = f"EMP-{len(employees) + 1:04d}"
+    existing_idx = next((i for i, e in enumerate(employees) if _norm_digits(e.get("phone")) == clean_digits), None)
+    if existing_idx is not None:
+        new_id = employees[existing_idx].get("id") or f"EMP-{1000 + len(employees) + 1}"
+        employees.pop(existing_idx)
+    else:
+        emp_nums = []
+        for e in employees:
+            m_n = re.search(r'(\d+)', str(e.get("id", "")))
+            if m_n:
+                emp_nums.append(int(m_n.group(1)))
+        next_emp_num = max(emp_nums, default=1000) + 1
+        new_id = f"EMP-{next_emp_num:04d}"
+
     new_emp = {
         "id": new_id,
         "name": name,
@@ -827,12 +886,6 @@ def add_employee(req: EmployeeCreateRequest):
     employees.insert(0, new_emp)
     save_json("employees.json", employees)
 
-    if db is not None:
-        try:
-            db["employees"].replace_one({"phone": formatted_phone}, new_emp, upsert=True)
-        except Exception as e:
-            print(f"[MONGODB ERROR] saving employee: {e}")
-
     return {
         "success": True,
         "employee": new_emp,
@@ -842,16 +895,26 @@ def add_employee(req: EmployeeCreateRequest):
 @app.delete("/api/employees/{emp_id}")
 @app.delete("/employees/{emp_id}")
 def delete_employee(emp_id: str):
+    # Check both stored employees and merged message-derived contacts so EMP-MSG-* deletes properly
+    merged = get_merged_employees()
+    merged_target = next((e for e in merged if e.get("id") == emp_id or e.get("phone") == emp_id), None)
+
     employees = load_json("employees.json", [])
-    target = next((e for e in employees if e.get("id") == emp_id or e.get("phone") == emp_id), None)
-    
-    # Remove from employees.json
-    new_employees = [e for e in employees if e.get("id") != emp_id and e.get("phone") != emp_id]
-    save_json("employees.json", new_employees)
-    
+    target = next((e for e in employees if e.get("id") == emp_id or e.get("phone") == emp_id), None) or merged_target
     target_phone = target.get("phone") if target else (emp_id if emp_id.startswith("+") else None)
+    target_digits = _norm_digits(target_phone)
+
+    # Remove from employees.json (preserving chats/message history intact!)
+    new_employees = [
+        e for e in employees
+        if e.get("id") != emp_id
+        and e.get("phone") != emp_id
+        and (not target_digits or _norm_digits(e.get("phone")) != target_digits)
+    ]
+    save_json("employees.json", new_employees)
+
     record_deleted_employee(emp_id, target_phone)
-    
+
     return {
         "success": True,
         "message": f"Employee {emp_id} deleted successfully."
