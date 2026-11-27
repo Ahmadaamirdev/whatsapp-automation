@@ -1714,6 +1714,17 @@ try:
 except Exception:
     pass
 
+@app.get("/api/upload/meta-config")
+@app.get("/upload/meta-config")
+def get_upload_meta_config():
+    """Provides Meta media upload endpoint config for direct browser upload of files > 4MB (bypasses Vercel 4.5MB limit)."""
+    if not WHATSAPP_ACCESS_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        raise HTTPException(status_code=500, detail="Missing Meta WhatsApp credentials")
+    return {
+        "phone_number_id": WHATSAPP_PHONE_NUMBER_ID,
+        "access_token": WHATSAPP_ACCESS_TOKEN
+    }
+
 @app.post("/api/upload")
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):

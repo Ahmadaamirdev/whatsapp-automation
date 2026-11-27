@@ -1266,20 +1266,7 @@ function updateTemplateVariablesAndPreview() {
       }
 
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
-        if (!res.ok) {
-          const msg = res.status === 413
-            ? 'File exceeds 4.5 MB serverless limit. For larger videos, paste a public https:// MP4 link.'
-            : `Upload failed (HTTP ${res.status})`;
-          if (bcFileStatus) {
-            bcFileStatus.textContent = msg;
-            bcFileStatus.style.color = '#dc2626';
-          }
-          return;
-        }
-        const data = await res.json();
+        const data = await uploadMediaToMeta(file);
 
         if (data.success && data.media_id) {
           broadcastMediaId = data.media_id;
@@ -1312,6 +1299,59 @@ function updateTemplateVariablesAndPreview() {
       }
     });
   }
+
+async function uploadMediaToMeta(file) {
+  const MAX_VERCEL_BYTES = 4 * 1024 * 1024; // 4 MB safe threshold under Vercel's 4.5 MB limit
+  const isVid = file.type.startsWith('video/') || /\.(mp4|3gp|mov)$/i.test(file.name);
+  const isImg = file.type.startsWith('image/') && !file.name.toLowerCase().endsWith('.svg');
+
+  if (isVid && file.size > 16 * 1024 * 1024) {
+    return { success: false, error: 'Video exceeds Meta WhatsApp 16 MB maximum limit. Please compress it under 16 MB.' };
+  }
+  if (isImg && file.size > 5 * 1024 * 1024) {
+    return { success: false, error: 'Image exceeds Meta WhatsApp 5 MB maximum limit.' };
+  }
+  if (file.size > 100 * 1024 * 1024) {
+    return { success: false, error: 'File exceeds Meta WhatsApp 100 MB maximum limit.' };
+  }
+
+  // Small files <= 4 MB go through /api/upload
+  if (file.size <= MAX_VERCEL_BYTES) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    if (!res.ok) {
+      return { success: false, error: `Upload failed (HTTP ${res.status})` };
+    }
+    return await res.json();
+  }
+
+  // Large files (> 4 MB, up to 16 MB video / 100 MB PDF) upload directly to Meta Graph API via CORS
+  const cfgRes = await fetch('/api/upload/meta-config');
+  if (!cfgRes.ok) {
+    return { success: false, error: 'Could not initialize direct Meta upload.' };
+  }
+  const cfg = await cfgRes.json();
+  const mime = (file.name.toLowerCase().endsWith('.svg') || (file.type || '').includes('svg'))
+    ? 'text/plain'
+    : (file.type || 'application/octet-stream');
+
+  const metaForm = new FormData();
+  metaForm.append('file', file);
+  metaForm.append('type', mime);
+  metaForm.append('messaging_product', 'whatsapp');
+
+  const metaRes = await fetch(`https://graph.facebook.com/v22.0/${cfg.phone_number_id}/media`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${cfg.access_token}` },
+    body: metaForm
+  });
+  const metaData = await metaRes.json();
+  if (metaRes.ok && metaData.id) {
+    return { success: true, media_id: metaData.id, url: '', filename: file.name, content_type: mime };
+  }
+  return { success: false, error: (metaData.error && metaData.error.message) || 'Meta direct upload failed' };
+}
 
 function renderLivePreview() {
   const select = document.getElementById('broadcastTemplateSelect');
@@ -2005,20 +2045,7 @@ function setupWhatsAppWebMessaging() {
             detectedType = 'document';
           }
 
-          // Upload to /api/upload
-          const formData = new FormData();
-          formData.append('file', selectedChatFile);
-          const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
-          if (!uploadRes.ok) {
-            alert(uploadRes.status === 413
-              ? 'File exceeds 4.5 MB serverless upload limit. For larger videos, paste a public https:// MP4 link.'
-              : `File upload failed (HTTP ${uploadRes.status})`);
-            btnSendMedia.disabled = false;
-            btnSendMedia.innerHTML = '<i data-lucide="send" style="width: 14px; height: 14px;"></i><span>Send to WhatsApp</span>';
-            initIcons();
-            return;
-          }
-          const uploadData = await uploadRes.json();
+          const uploadData = await uploadMediaToMeta(selectedChatFile);
           if (!uploadData.success) {
             alert('File upload failed: ' + (uploadData.error || 'Server error'));
             btnSendMedia.disabled = false;
