@@ -1715,6 +1715,36 @@ function setupTemplateModal() {
   const headerCounter = document.getElementById('tplHeaderCharCounter');
   const bodyCounter = document.getElementById('tplBodyCharCounter');
 
+  // Local sample media file upload for template creation
+  const tplHeaderFileInput = document.getElementById('tplHeaderFileInput');
+  const btnChooseTplSample = document.getElementById('btnChooseTplSampleFile');
+  const tplSampleFileName = document.getElementById('tplSampleFileName');
+  const tplHeaderMediaInput = document.getElementById('tplHeaderMediaInput');
+
+  if (btnChooseTplSample && tplHeaderFileInput) {
+    btnChooseTplSample.onclick = () => tplHeaderFileInput.click();
+  }
+
+  if (tplHeaderFileInput) {
+    tplHeaderFileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (tplSampleFileName) tplSampleFileName.textContent = file.name;
+      
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const upRes = await fetch('/api/upload', { method: 'POST', body: formData });
+        const upData = await upRes.json();
+        if (upData.success && upData.url) {
+          if (tplHeaderMediaInput) tplHeaderMediaInput.value = upData.url;
+        }
+      } catch (err) {
+        console.warn('Sample upload warning:', err);
+      }
+    };
+  }
+
   if (headerTypeSelect) {
     headerTypeSelect.addEventListener('change', () => {
       const val = headerTypeSelect.value;

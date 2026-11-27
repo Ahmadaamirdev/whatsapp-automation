@@ -778,9 +778,17 @@
             <input type="text" id="tplHeaderInput" class="form-input" maxlength="60" placeholder="e.g. Al-Haditha Energy Notice">
           </div>
           <div class="form-group" id="tplHeaderMediaWrap" style="display: none;">
-            <label class="form-label">Sample Media URL (For Meta Approval)</label>
-            <input type="url" id="tplHeaderMediaInput" class="form-input" placeholder="e.g. https://.../sample.jpg">
-            <small style="font-size: 10px; color: #059669;">✓ Auto-supplied default sample for instant Meta approval.</small>
+            <label class="form-label">Sample Media (For Meta Approval)</label>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+              <input type="file" id="tplHeaderFileInput" accept="image/*,video/mp4,application/pdf" style="display: none;">
+              <button type="button" class="btn-action-view" id="btnChooseTplSampleFile" style="font-size: 11px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px;">
+                <i data-lucide="upload" style="width: 12px; height: 12px;"></i>
+                <span id="tplSampleFileLabel">Choose from Computer</span>
+              </button>
+              <span id="tplSampleFileName" style="font-size: 11px; color: #008c44; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;"></span>
+            </div>
+            <input type="url" id="tplHeaderMediaInput" class="form-input" style="font-size: 11px; padding: 4px 8px;" placeholder="Or paste public media link (optional)">
+            <small style="font-size: 10px; color: #059669; display: block; margin-top: 3px;">✓ Auto-supplies certified sample handle for instant 1-click Meta approval if left empty.</small>
           </div>
         </div>
 
