@@ -564,27 +564,54 @@ function setupBroadcastTracker() {
 
 // --- 3. BROADCAST STUDIO & LIVE PREVIEW ---
 async function loadTemplates() {
+  const fallbackTemplates = [
+    {
+      name: "staff_official_notice",
+      status: "APPROVED",
+      category: "MARKETING",
+      components: [
+        { type: "HEADER", format: "TEXT", text: "Al-Haditha Energy Notice" },
+        { type: "BODY", text: "Dear {{1}}, please be advised of the following announcement regarding {{2}}:\n\n{{3}}\n\nThank you for your cooperation." },
+        { type: "FOOTER", text: "Al-Haditha Energy Management" }
+      ]
+    },
+    {
+      name: "general_announcement",
+      status: "APPROVED",
+      category: "UTILITY",
+      components: [
+        { type: "HEADER", format: "TEXT", text: "Al Haditha Energy Official Announcement" },
+        { type: "BODY", text: "Dear {{1}},\n\nThis is a general announcement from Al Haditha Energy regarding {{2}}:\n{{3}}\n\nThank you for your continued support." },
+        { type: "FOOTER", text: "Al Haditha Energy HR" }
+      ]
+    }
+  ];
+
   try {
     const res = await fetch('/api/templates');
-    if (!res.ok) return;
-    const data = await res.json();
-    templatesList = data.templates || [];
-
-    const select = document.getElementById('broadcastTemplateSelect');
-    if (!select) return;
-    select.innerHTML = '';
-
-    templatesList.forEach(t => {
-      const opt = document.createElement('option');
-      opt.value = t.name;
-      opt.textContent = `${t.name.replace(/_/g, ' ').toUpperCase()} (${t.status || 'APPROVED'})`;
-      select.appendChild(opt);
-    });
-
-    updateTemplateVariablesAndPreview();
+    if (res.ok) {
+      const data = await res.json();
+      templatesList = (data.templates && data.templates.length > 0) ? data.templates : fallbackTemplates;
+    } else {
+      templatesList = fallbackTemplates;
+    }
   } catch (err) {
-    console.error('Error loading templates:', err);
+    console.error('Error loading templates, using fallback:', err);
+    templatesList = fallbackTemplates;
   }
+
+  const select = document.getElementById('broadcastTemplateSelect');
+  if (!select) return;
+  select.innerHTML = '';
+
+  templatesList.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.name;
+    opt.textContent = `${t.name.replace(/_/g, ' ').toUpperCase()} (${t.status || 'APPROVED'})`;
+    select.appendChild(opt);
+  });
+
+  updateTemplateVariablesAndPreview();
 }
 
 function setupBroadcastStudio() {

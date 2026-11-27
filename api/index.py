@@ -1487,8 +1487,11 @@ def get_broadcast_details(broadcast_id: str):
 from fastapi import UploadFile, File
 import shutil
 
-UPLOAD_DIR = BASE_DIR / "public" / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR = Path("/tmp/uploads") if IS_VERCEL else (BASE_DIR / "public" / "uploads")
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
 
 @app.post("/api/upload")
 @app.post("/upload")
