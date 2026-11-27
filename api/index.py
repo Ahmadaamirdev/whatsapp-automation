@@ -1101,7 +1101,7 @@ def send_broadcast(req: BroadcastSendRequest):
             "id": msg_id,
             "direction": "outgoing",
             "sender": "Al Haditha Energy",
-            "text": "📢 [" + req.template_name.replace("_", " ").title() + "]\n" + emp_chat_text,
+            "text": "📢 *" + req.template_name.replace("_", " ").title() + "*\n" + emp_chat_text,
             "time": now_time,
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "status": msg_status

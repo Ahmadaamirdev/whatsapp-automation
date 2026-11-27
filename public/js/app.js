@@ -1,6 +1,6 @@
 // Al-Haditha Energy WhatsApp System - Application Logic
 let currentTab = 'dashboard';
-let activePhone = '+923306579717';
+let activePhone = null;
 let templatesList = [];
 let allChats = {};
 let allBroadcasts = [];
@@ -106,6 +106,16 @@ function switchTab(tabName) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const activeNav = document.querySelector(`.nav-item[data-tab="${tabName}"]`);
   if (activeNav) activeNav.classList.add('active');
+
+  // Collapse sidebar to show symbols only when in message chat
+  const sidebar = document.querySelector('.sidebar');
+  if (sidebar) {
+    if (tabName === 'messages') {
+      sidebar.classList.add('collapsed');
+    } else {
+      sidebar.classList.remove('collapsed');
+    }
+  }
 
   // Hide all tab views
   document.querySelectorAll('.tab-view').forEach(view => view.style.display = 'none');
@@ -620,38 +630,54 @@ function setupBroadcastStudio() {
     select.addEventListener('change', updateTemplateVariablesAndPreview);
   }
 
-  // Recipient pill selection toggles (Simplified: Everyone, By Department, Select Employee)
-  const pillAll = document.getElementById('pillAll');
-  const pillDept = document.getElementById('pillDept');
-  const pillEmployee = document.getElementById('pillEmployee');
+  // Recipient custom dropdown selection (Everyone, By Department, Select Employee, Upload CSV)
+  const recipientModeSelect = document.getElementById('recipientModeSelect');
+  const recipientDropdown = document.getElementById('recipientModeDropdown');
+  const recipientTrigger = document.getElementById('recipientModeTrigger');
+  const recipientSelected = document.getElementById('recipientModeSelected');
+  const recipientMenu = document.getElementById('recipientModeMenu');
   const deptWrap = document.getElementById('deptSelectorWrap');
   const employeeWrap = document.getElementById('employeeSelectorWrap');
   const btnUnselectEmp = document.getElementById('btnUnselectEmployee');
   const btnUnselectDept = document.getElementById('btnUnselectDept');
-
-  const pillCsv = document.getElementById('pillCsv');
   const csvWrap = document.getElementById('csvSelectorWrap');
   let csvRecipientsList = [];
 
+  const recipientModeMeta = {
+    all: { label: 'Everyone (All Employees)', icon: 'globe' },
+    department: { label: 'By Department', icon: 'briefcase' },
+    employee: { label: 'Select Employee', icon: 'user' },
+    csv: { label: 'Upload CSV / Excel', icon: 'file-spreadsheet' }
+  };
+
   window.setRecipientMode = function(mode) {
-    [pillAll, pillDept, pillEmployee, pillCsv].forEach(p => p && p.classList.remove('active'));
+    if (!mode || !recipientModeMeta[mode]) mode = 'all';
+    if (recipientModeSelect) recipientModeSelect.value = mode;
+
+    // Update custom dropdown UI
+    if (recipientMenu) {
+      recipientMenu.querySelectorAll('.custom-dropdown-item').forEach(item => {
+        item.classList.toggle('active', item.getAttribute('data-value') === mode);
+      });
+    }
+    if (recipientSelected) {
+      const meta = recipientModeMeta[mode];
+      recipientSelected.innerHTML = `<i data-lucide="${meta.icon}" style="width: 15px; height: 15px; color: var(--primary-green);"></i><span>${meta.label}</span>`;
+      if (typeof initIcons === 'function') initIcons();
+    }
+
     if (deptWrap) deptWrap.style.display = 'none';
     if (employeeWrap) employeeWrap.style.display = 'none';
     if (csvWrap) csvWrap.style.display = 'none';
 
     if (mode === 'department') {
-      if (pillDept) pillDept.classList.add('active');
       if (deptWrap) deptWrap.style.display = 'block';
     } else if (mode === 'employee') {
-      if (pillEmployee) pillEmployee.classList.add('active');
       if (employeeWrap) employeeWrap.style.display = 'block';
       syncSelectedEmployeeWithTemplate();
     } else if (mode === 'csv') {
-      if (pillCsv) pillCsv.classList.add('active');
       if (csvWrap) csvWrap.style.display = 'block';
     } else {
-      // Default: 'all' (Everyone)
-      if (pillAll) pillAll.classList.add('active');
       const empSelect = document.getElementById('employeeSelectDropdown');
       if (empSelect) empSelect.value = '';
       resetRecipientVariableToDefault();
@@ -659,22 +685,31 @@ function setupBroadcastStudio() {
     renderLivePreview();
   };
 
-  function bindPillToggle(el, mode) {
-    if (!el) return;
-    el.addEventListener('click', (e) => {
-      e.preventDefault(); // Prevents child input radio duplicate click event
-      if (el.classList.contains('active') && mode !== 'all') {
-        setRecipientMode('all');
-      } else {
+  if (recipientTrigger && recipientMenu) {
+    recipientTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = recipientMenu.style.display === 'flex';
+      recipientMenu.style.display = isOpen ? 'none' : 'flex';
+      recipientTrigger.setAttribute('aria-expanded', String(!isOpen));
+    });
+
+    recipientMenu.querySelectorAll('.custom-dropdown-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mode = item.getAttribute('data-value');
+        recipientMenu.style.display = 'none';
+        recipientTrigger.setAttribute('aria-expanded', 'false');
         setRecipientMode(mode);
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (recipientDropdown && !recipientDropdown.contains(e.target)) {
+        recipientMenu.style.display = 'none';
+        recipientTrigger.setAttribute('aria-expanded', 'false');
       }
     });
   }
-
-  bindPillToggle(pillAll, 'all');
-  bindPillToggle(pillDept, 'department');
-  bindPillToggle(pillEmployee, 'employee');
-  bindPillToggle(pillCsv, 'csv');
 
   // CSV File Upload handling
   const csvInput = document.getElementById('csvFileInput');
@@ -1240,8 +1275,8 @@ async function handleSendBroadcast() {
   const select = document.getElementById('broadcastTemplateSelect');
   const selectedTemplate = select.value;
 
-  const activePill = document.querySelector('.recipient-pill.active input');
-  const recipientType = activePill ? activePill.value : 'all';
+  const recipientSelect = document.getElementById('recipientModeSelect');
+  const recipientType = recipientSelect ? recipientSelect.value : 'all';
 
   let filterValue = null;
   let testNumber = null;
@@ -1354,6 +1389,41 @@ async function handleSendBroadcast() {
 
 
 // --- 4. WHATSAPP WEB-STYLE LIVE MESSAGING ---
+function formatWhatsAppText(text) {
+  if (!text) return '';
+
+  // 1. Convert brackets [Text] into bold heading (removes literal brackets, renders clean bold text)
+  let formatted = text.replace(/\[([^\]\r\n]+)\]/g, '<strong class="wa-bold">$1</strong>');
+
+  // 2. WhatsApp bold: *text* -> <strong>text</strong>
+  formatted = formatted.replace(/(?<=^|[\s\p{P}])\*([^\s*](?:.*?[^\s*])?)\*(?=[\s\p{P}]|$)/gu, '<strong class="wa-bold">$1</strong>');
+
+  // 3. WhatsApp italic: _text_ -> <em>text</em>
+  formatted = formatted.replace(/(?<=^|[\s\p{P}])_([^\s_](?:.*?[^\s_])?)_(?=[\s\p{P}]|$)/gu, '<em>$1</em>');
+
+  // 4. WhatsApp strikethrough: ~text~ -> <del>text</del>
+  formatted = formatted.replace(/(?<=^|[\s\p{P}])~([^\s~](?:.*?[^\s~])?)~(?=[\s\p{P}]|$)/gu, '<del>$1</del>');
+
+  // 5. WhatsApp inline monospace: `text` -> <code>text</code>
+  formatted = formatted.replace(/`([^`\r\n]+)`/g, '<code class="wa-code">$1</code>');
+
+  // 6. Convert newlines to line breaks
+  formatted = formatted.replace(/\n/g, '<br>');
+
+  return formatted;
+}
+
+function cleanChatSnippet(text) {
+  if (!text) return '';
+  return text
+    .replace(/\[([^\]\r\n]+)\]/g, '$1')
+    .replace(/\*([^*\r\n]+)\*/g, '$1')
+    .replace(/_([^_\r\n]+)_/g, '$1')
+    .replace(/~([^~\r\n]+)~/g, '$1')
+    .replace(/\n+/g, ' ')
+    .trim();
+}
+
 let lastChatsSignature = '';
 
 async function loadChats(forceRerender = false) {
@@ -1369,33 +1439,41 @@ async function loadChats(forceRerender = false) {
       renderConversationsList(chatsList);
     }
 
-    // If active phone is selected, reload that conversation
+    // If active phone is selected, reload that conversation; otherwise render clean unselected state
     if (activePhone) {
       loadActiveChat(activePhone, forceRerender);
-    } else if (chatsList.length > 0) {
-      activePhone = chatsList[0].phone;
-      loadActiveChat(activePhone, true);
     } else {
-      const msgArea = document.getElementById('waMessagesArea');
-      if (msgArea) {
-        msgArea.innerHTML = `
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #64748b; text-align: center; padding: 24px;">
-            <div style="width: 52px; height: 52px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; color: #00a651;">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-            </div>
-            <h4 style="font-size: 16px; font-weight: 600; color: #1e293b; margin-bottom: 6px;">No conversations yet</h4>
-            <p style="font-size: 13px; max-width: 320px; line-height: 1.5; color: #64748b; margin-bottom: 16px;">
-              When an employee sends a WhatsApp message or you start a new conversation, it will appear here in real time.
-            </p>
-            <button type="button" class="btn btn-primary" onclick="const b=document.getElementById('btnNewChatPrompt'); if(b) b.click();" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 16px;">
-              + Start New Chat
-            </button>
-          </div>
-        `;
-      }
+      renderNoChatSelectedState();
     }
   } catch (err) {
     console.error('Error loading chats:', err);
+  }
+}
+
+function renderNoChatSelectedState() {
+  const headerEl = document.getElementById('waChatHeader');
+  const inputBarEl = document.querySelector('.wa-input-bar');
+  const msgArea = document.getElementById('waMessagesArea');
+
+  if (headerEl) headerEl.style.display = 'none';
+  if (inputBarEl) inputBarEl.style.display = 'none';
+
+  if (msgArea) {
+    msgArea.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 32px; background: #efeae2; background-image: radial-gradient(#d4ccc3 1px, transparent 1px); background-size: 16px 16px;">
+        <div style="width: 68px; height: 68px; border-radius: 50%; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: center; margin-bottom: 18px; color: #00a651;">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        <h3 style="font-size: 20px; font-weight: 700; color: #111b21; margin-bottom: 8px;">WhatsApp Live Conversations</h3>
+        <p style="font-size: 13.5px; color: #64748b; max-width: 360px; line-height: 1.5; margin-bottom: 24px;">
+          Select a conversation from the left to view messages, send replies, or share documents and photos.
+        </p>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #8696a0; font-weight: 500;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <span>End-to-end encrypted Al-Haditha WhatsApp Portal</span>
+        </div>
+      </div>
+    `;
   }
 }
 
@@ -1453,7 +1531,7 @@ function renderConversationsList(chats) {
           <span class="wa-row-time">${formatLocalTime(chat.last_activity, chat.last_timestamp)}</span>
         </div>
         <div class="wa-row-sub">
-          <span class="wa-row-msg">${chat.last_message || chat.role || 'WhatsApp conversation'}</span>
+          <span class="wa-row-msg">${cleanChatSnippet(chat.last_message || chat.role || 'WhatsApp conversation')}</span>
           ${chat.unread_count > 0 ? `<span class="wa-unread-badge">${chat.unread_count}</span>` : ''}
         </div>
       </div>
@@ -1480,6 +1558,11 @@ async function loadActiveChat(phone, scrollBottom = false) {
     const phoneEl = document.getElementById('activeChatPhone');
     const avatarEl = document.getElementById('activeChatAvatar');
     const msgArea = document.getElementById('waMessagesArea');
+    const headerEl = document.getElementById('waChatHeader');
+    const inputBarEl = document.querySelector('.wa-input-bar');
+
+    if (headerEl) headerEl.style.display = 'flex';
+    if (inputBarEl) inputBarEl.style.display = 'flex';
 
     if (nameEl) nameEl.textContent = chat.name || phone;
     if (phoneEl) phoneEl.textContent = `${phone} • ${chat.role || 'Active on WhatsApp'}`;
@@ -1550,7 +1633,7 @@ async function loadActiveChat(phone, scrollBottom = false) {
 
           bubble.innerHTML = `
             ${mediaHtml}
-            <div>${(m.text || '').replace(/\n/g, '<br>')}</div>
+            <div>${formatWhatsAppText(m.text || '')}</div>
             <div class="wa-msg-meta">
               <span>${formatLocalTime(m.time, m.timestamp)}</span>
               ${isOut ? '<span class="wa-ticks">✓✓</span>' : ''}
@@ -1591,8 +1674,11 @@ function setupWhatsAppWebMessaging() {
   const sendBtn = document.getElementById('waChatSendBtn');
   const input = document.getElementById('waChatMessageInput');
 
-  // Attach media modal logic (with direct local computer file upload)
+  // Attach media modal logic (with direct local computer file upload and WhatsApp dropup)
   const attachBtn = document.getElementById('waChatAttachBtn');
+  const attachDropup = document.getElementById('waAttachDropup');
+  const btnAttachDoc = document.getElementById('waAttachDocBtn');
+  const btnAttachMedia = document.getElementById('waAttachMediaBtn');
   const mediaModal = document.getElementById('chatMediaModal');
   const btnCloseMediaModal = document.getElementById('btnCloseChatMediaModal');
   const btnCancelMedia = document.getElementById('btnCancelChatMedia');
@@ -1646,6 +1732,11 @@ function setupWhatsAppWebMessaging() {
       if (fileSizeEl) fileSizeEl.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
       if (filePreview) filePreview.style.display = 'flex';
       if (dropzone) dropzone.style.display = 'none';
+
+      // Open media confirmation modal ready to send
+      if (mediaModal) {
+        mediaModal.style.display = 'flex';
+      }
     };
   }
 
@@ -1665,21 +1756,42 @@ function setupWhatsAppWebMessaging() {
     };
   }
 
-  if (attachBtn && mediaModal) {
-    attachBtn.addEventListener('click', () => {
+  // WhatsApp Attachment Dropup Toggle
+  if (attachBtn && attachDropup) {
+    attachBtn.onclick = (e) => {
+      e.stopPropagation();
       if (!activePhone) {
         alert('Please select an active conversation first.');
         return;
       }
-      mediaModal.style.display = 'flex';
-      selectedChatFile = null;
-      if (fileInput) fileInput.value = '';
-      if (filePreview) filePreview.style.display = 'none';
-      if (dropzone) dropzone.style.display = 'block';
-      if (mediaUrlInput) mediaUrlInput.value = '';
-      if (mediaCaptionInput) mediaCaptionInput.value = '';
-      if (urlWrap) urlWrap.style.display = 'none';
+      attachDropup.style.display = (attachDropup.style.display === 'none' || !attachDropup.style.display) ? 'flex' : 'none';
+    };
+
+    document.addEventListener('click', (e) => {
+      if (attachDropup && attachDropup.style.display !== 'none') {
+        if (!attachDropup.contains(e.target) && !attachBtn.contains(e.target)) {
+          attachDropup.style.display = 'none';
+        }
+      }
     });
+  }
+
+  if (btnAttachDoc && fileInput) {
+    btnAttachDoc.onclick = (e) => {
+      e.stopPropagation();
+      if (attachDropup) attachDropup.style.display = 'none';
+      fileInput.accept = '.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,application/pdf';
+      fileInput.click();
+    };
+  }
+
+  if (btnAttachMedia && fileInput) {
+    btnAttachMedia.onclick = (e) => {
+      e.stopPropagation();
+      if (attachDropup) attachDropup.style.display = 'none';
+      fileInput.accept = 'image/*,video/*';
+      fileInput.click();
+    };
   }
 
   if (btnCloseMediaModal && mediaModal) btnCloseMediaModal.onclick = () => mediaModal.style.display = 'none';
@@ -2480,27 +2592,27 @@ async function loadEmployeesTable(page = 1) {
       const tr = document.createElement('tr');
       const isFromMessages = (emp.id || '').includes('MSG');
       tr.innerHTML = `
-        <td style="font-family: monospace; font-size: 11px; font-weight: 600; color: #475569;">
-          ${emp.id}
-          ${isFromMessages ? '<span style="margin-left: 4px; font-size: 9px; background: #dcfce7; color: #047857; padding: 1px 4px; border-radius: 3px; font-weight: 700;">LIVE CHAT</span>' : ''}
+        <td style="font-family: monospace; font-size: 11px; font-weight: 600; color: #475569; white-space: nowrap;">
+          <div>${emp.id}</div>
+          ${isFromMessages ? '<span style="display: inline-block; margin-top: 2px; font-size: 9px; background: #dcfce7; color: #047857; padding: 1px 4px; border-radius: 3px; font-weight: 700;">LIVE CHAT</span>' : ''}
         </td>
         <td style="font-weight: 700; color: #0f172a;">${emp.name}</td>
-        <td style="color: #00a651; font-weight: 600; font-family: monospace; font-size: 12px;">${emp.phone}</td>
-        <td><span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${emp.department || 'General'}</span></td>
+        <td style="color: #00a651; font-weight: 600; font-family: monospace; font-size: 12px; white-space: nowrap;">${emp.phone}</td>
+        <td><span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-weight: 700; white-space: nowrap;">${emp.department || 'General'}</span></td>
         <td style="color: #64748b; font-size: 12px;">${emp.designation || 'Staff'}</td>
-        <td style="color: #64748b; font-size: 12px;">${emp.location || 'Muscat HQ'}</td>
-        <td><span class="status-badge active"><span class="badge-dot"></span>Active</span></td>
-        <td>
-          <div style="display: flex; gap: 6px;">
-            <button type="button" class="btn-action-view" onclick="selectEmployeeForBroadcast('${emp.id}')" title="Send WhatsApp broadcast announcement to this employee" style="padding: 4px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+        <td style="color: #64748b; font-size: 12px; white-space: nowrap;">${emp.location || 'Muscat HQ'}</td>
+        <td style="white-space: nowrap;"><span class="status-badge active"><span class="badge-dot"></span>Active</span></td>
+        <td style="white-space: nowrap;">
+          <div style="display: flex; gap: 5px; flex-wrap: nowrap;">
+            <button type="button" class="btn-action-view" onclick="selectEmployeeForBroadcast('${emp.id}')" title="Send WhatsApp broadcast announcement to this employee" style="padding: 4px 7px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
               <i data-lucide="megaphone" style="width: 12px; height: 12px;"></i>
               <span>Broadcast</span>
             </button>
-            <button type="button" class="btn-action-view" onclick="openChatWithEmployee('${emp.phone}', '${emp.name.replace(/'/g, "\\'")}')" title="Open 1-on-1 WhatsApp chat with this employee" style="padding: 4px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">
+            <button type="button" class="btn-action-view" onclick="openChatWithEmployee('${emp.phone}', '${emp.name.replace(/'/g, "\\'")}')" title="Open 1-on-1 WhatsApp chat with this employee" style="padding: 4px 7px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
               <i data-lucide="message-square" style="width: 12px; height: 12px;"></i>
               <span>Chat</span>
             </button>
-            <button type="button" class="btn-action-view" onclick="deleteEmployee('${emp.id}', '${emp.name.replace(/'/g, "\\'")}')" title="Delete employee" style="padding: 4px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; color: #ef4444; border-color: #fecaca; background: #fff5f5;">
+            <button type="button" class="btn-action-view" onclick="deleteEmployee('${emp.id}', '${emp.name.replace(/'/g, "\\'")}')" title="Delete employee" style="padding: 4px 7px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: #ef4444; border-color: #fecaca; background: #fff5f5;">
               <i data-lucide="trash-2" style="width: 12px; height: 12px;"></i>
               <span>Delete</span>
             </button>

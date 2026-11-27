@@ -8,7 +8,7 @@
   <meta http-equiv="Expires" content="0">
   <title>WhatsApp Announcement & Communication System - Al Haditha Energy</title>
   <link rel="icon" type="image/png" href="/logo.png">
-  <link rel="stylesheet" href="/css/style.css?v=2.7.0">
+  <link rel="stylesheet" href="/css/style.css?v=2.7.6">
   <!-- Lucide Icons for clean SVG rendering -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -23,24 +23,24 @@
 
       <!-- NAVIGATION MENU -->
       <nav class="nav-menu">
-        <a href="#dashboard" class="nav-item active" data-tab="dashboard">
+        <a href="#dashboard" class="nav-item active" data-tab="dashboard" title="Dashboard">
           <i data-lucide="layout-grid"></i>
           <span>Dashboard</span>
         </a>
-        <a href="#broadcasts" class="nav-item" data-tab="broadcasts">
+        <a href="#broadcasts" class="nav-item" data-tab="broadcasts" title="Broadcasts">
           <i data-lucide="megaphone"></i>
           <span>Broadcasts</span>
         </a>
-        <a href="#employees" class="nav-item" data-tab="employees">
+        <a href="#employees" class="nav-item" data-tab="employees" title="Employees">
           <i data-lucide="users"></i>
           <span>Employees</span>
         </a>
-        <a href="#messages" class="nav-item" data-tab="messages">
+        <a href="#messages" class="nav-item" data-tab="messages" title="Messages">
           <i data-lucide="message-square"></i>
           <span>Messages</span>
           <span class="sidebar-badge" id="sidebarUnreadBadge" style="display: none;">0</span>
         </a>
-        <a href="#templates" class="nav-item" data-tab="templates">
+        <a href="#templates" class="nav-item" data-tab="templates" title="Templates">
           <i data-lucide="file-text"></i>
           <span>Templates</span>
         </a>
@@ -217,27 +217,45 @@
                   <i data-lucide="users" style="width: 14px; height: 14px; color: var(--primary-green);"></i>
                   <span>Select Recipients</span>
                 </label>
-                <div class="recipient-pills-row">
-                  <label class="recipient-pill active" id="pillAll">
-                    <input type="radio" name="recipientFilter" value="all" checked style="display: none;">
-                    <i data-lucide="globe" style="width: 14px; height: 14px;"></i>
-                    <span>Everyone</span>
-                  </label>
-                  <label class="recipient-pill" id="pillDept">
-                    <input type="radio" name="recipientFilter" value="department" style="display: none;">
-                    <i data-lucide="briefcase" style="width: 14px; height: 14px;"></i>
-                    <span>By Department</span>
-                  </label>
-                  <label class="recipient-pill" id="pillEmployee">
-                    <input type="radio" name="recipientFilter" value="employee" style="display: none;">
-                    <i data-lucide="user" style="width: 14px; height: 14px;"></i>
-                    <span>Select Employee</span>
-                  </label>
-                  <label class="recipient-pill" id="pillCsv">
-                    <input type="radio" name="recipientFilter" value="csv" style="display: none;">
-                    <i data-lucide="file-spreadsheet" style="width: 14px; height: 14px;"></i>
-                    <span>Upload CSV / Excel</span>
-                  </label>
+                <div class="custom-dropdown" id="recipientModeDropdown">
+                  <input type="hidden" id="recipientModeSelect" value="all">
+                  <button type="button" class="custom-dropdown-trigger" id="recipientModeTrigger" aria-expanded="false">
+                    <span class="custom-dropdown-selected" id="recipientModeSelected">
+                      <i data-lucide="globe" style="width: 15px; height: 15px; color: var(--primary-green);"></i>
+                      <span>Everyone (All Employees)</span>
+                    </span>
+                    <i data-lucide="chevron-down" class="custom-dropdown-chevron" style="width: 16px; height: 16px;"></i>
+                  </button>
+                  <div class="custom-dropdown-menu" id="recipientModeMenu" style="display: none;">
+                    <button type="button" class="custom-dropdown-item active" data-value="all">
+                      <span class="custom-dropdown-item-left">
+                        <i data-lucide="globe" style="width: 15px; height: 15px;"></i>
+                        <span>Everyone (All Employees)</span>
+                      </span>
+                      <i data-lucide="check" class="custom-dropdown-check" style="width: 15px; height: 15px;"></i>
+                    </button>
+                    <button type="button" class="custom-dropdown-item" data-value="department">
+                      <span class="custom-dropdown-item-left">
+                        <i data-lucide="briefcase" style="width: 15px; height: 15px;"></i>
+                        <span>By Department</span>
+                      </span>
+                      <i data-lucide="check" class="custom-dropdown-check" style="width: 15px; height: 15px;"></i>
+                    </button>
+                    <button type="button" class="custom-dropdown-item" data-value="employee">
+                      <span class="custom-dropdown-item-left">
+                        <i data-lucide="user" style="width: 15px; height: 15px;"></i>
+                        <span>Select Employee</span>
+                      </span>
+                      <i data-lucide="check" class="custom-dropdown-check" style="width: 15px; height: 15px;"></i>
+                    </button>
+                    <button type="button" class="custom-dropdown-item" data-value="csv">
+                      <span class="custom-dropdown-item-left">
+                        <i data-lucide="file-spreadsheet" style="width: 15px; height: 15px;"></i>
+                        <span>Upload CSV / Excel</span>
+                      </span>
+                      <i data-lucide="check" class="custom-dropdown-check" style="width: 15px; height: 15px;"></i>
+                    </button>
+                  </div>
                 </div>
 
                 <!-- SUB-SELECTOR FOR DEPARTMENT -->
@@ -654,12 +672,12 @@
           <!-- RIGHT ACTIVE CHAT CONVERSATION WINDOW -->
           <div class="wa-active-chat-panel">
             <!-- ACTIVE CHAT TOP BAR -->
-            <div class="wa-chat-header" id="waChatHeader">
+            <div class="wa-chat-header" id="waChatHeader" style="display: none;">
               <div style="display: flex; align-items: center; gap: 12px;">
                 <div class="wa-avatar" id="activeChatAvatar">H</div>
                 <div>
                   <h4 id="activeChatName" style="font-size: 15px; font-weight: 700; color: #0f172a;">Select a conversation</h4>
-                  <p id="activeChatPhone" style="font-size: 12px; color: #00a651; font-weight: 600;">● Online • WhatsApp Cloud API</p>
+                  <p id="activeChatPhone" style="font-size: 12px; color: #00a651; font-weight: 600;">● Online • WhatsApp Contact</p>
                 </div>
               </div>
 
@@ -675,12 +693,44 @@
 
             <!-- CHAT MESSAGES SCROLL AREA (With WhatsApp Wallpaper Pattern) -->
             <div class="wa-messages-area" id="waMessagesArea">
-              <!-- Messages bubbles populated dynamically -->
+              <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 32px; background: #efeae2; background-image: radial-gradient(#d4ccc3 1px, transparent 1px); background-size: 16px 16px;">
+                <div style="width: 68px; height: 68px; border-radius: 50%; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.06); display: flex; align-items: center; justify-content: center; margin-bottom: 18px; color: #00a651;">
+                  <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+                <h3 style="font-size: 20px; font-weight: 700; color: #111b21; margin-bottom: 8px;">WhatsApp Live Conversations</h3>
+                <p style="font-size: 13.5px; color: #64748b; max-width: 360px; line-height: 1.5; margin-bottom: 24px;">
+                  Select a conversation from the left to view messages, send replies, or share documents and photos.
+                </p>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #8696a0; font-weight: 500;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                  <span>End-to-end encrypted Al-Haditha WhatsApp Portal</span>
+                </div>
+              </div>
             </div>
 
             <!-- BOTTOM INPUT BAR -->
-            <div class="wa-input-bar" style="position: relative;">
-              <button type="button" class="btn-chat-attach" id="waChatAttachBtn" title="Attach Image or Document" style="background: transparent; border: none; cursor: pointer; color: #64748b; padding: 8px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
+            <div class="wa-input-bar" style="position: relative; display: none;">
+              <!-- WHATSAPP ATTACHMENT DROPUP MENU -->
+              <div id="waAttachDropup" class="wa-attach-dropup" style="display: none;">
+                <button type="button" class="wa-dropup-item" id="waAttachDocBtn">
+                  <span class="wa-dropup-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#a855f7">
+                      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                    </svg>
+                  </span>
+                  <span class="wa-dropup-label">Document</span>
+                </button>
+                <button type="button" class="wa-dropup-item" id="waAttachMediaBtn">
+                  <span class="wa-dropup-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#007aff">
+                      <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                    </svg>
+                  </span>
+                  <span class="wa-dropup-label">Photos &amp; videos</span>
+                </button>
+              </div>
+
+              <button type="button" class="btn-chat-attach" id="waChatAttachBtn" title="Attach Document, Photo, or Video" style="background: transparent; border: none; cursor: pointer; color: #64748b; padding: 8px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
                 <i data-lucide="paperclip" style="width: 18px; height: 18px;"></i>
               </button>
               <input type="text" id="waChatMessageInput" class="wa-message-input" placeholder="Type a message...">
@@ -948,7 +998,7 @@
     </div>
   </div>
 
-  <script src="/js/app.js?v=2.7.0"></script>
+  <script src="/js/app.js?v=2.7.6"></script>
 
   <!-- MODAL: BROADCAST DISPATCH DETAILS & LOGS -->
   <div id="broadcastDetailModal" class="modal-overlay" style="display: none;">
@@ -1054,11 +1104,6 @@
           <div id="chatUrlWrap" style="display: none; margin-top: 8px;">
             <input type="url" id="chatMediaUrlInput" class="form-input" placeholder="e.g. https://.../image.jpg" style="font-size: 12px;">
           </div>
-        </div>
-
-        <div class="form-group" style="margin-top: -2px;">
-          <label class="form-label">Caption (Optional)</label>
-          <input type="text" id="chatMediaCaptionInput" class="form-input" placeholder="Add an optional caption...">
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
