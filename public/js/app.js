@@ -614,17 +614,133 @@ async function loadTemplates() {
   if (!select) return;
   select.innerHTML = '';
 
+  const formatTitleCase = (str) => (str || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
   templatesList.forEach(t => {
     const opt = document.createElement('option');
     opt.value = t.name;
-    opt.textContent = `${t.name.replace(/_/g, ' ').toUpperCase()} (${t.status || 'APPROVED'})`;
+    opt.textContent = `${formatTitleCase(t.name)} (${formatTitleCase(t.status || 'APPROVED')})`;
     select.appendChild(opt);
   });
 
   updateTemplateVariablesAndPreview();
 }
 
+function closeAllCustomDropdowns(exceptDropdown = null) {
+  document.querySelectorAll('.custom-dropdown').forEach(dd => {
+    if (dd === exceptDropdown) return;
+    const menu = dd.querySelector('.custom-dropdown-menu');
+    const trigger = dd.querySelector('.custom-dropdown-trigger, .insert-var-trigger');
+    if (menu) menu.style.display = 'none';
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+  });
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.custom-dropdown')) {
+    closeAllCustomDropdowns();
+  }
+});
+
+function enhanceSelectToCustomDropdown(selectId, iconName = 'list', placeholder = 'Select an option') {
+  const selectEl = document.getElementById(selectId);
+  if (!selectEl || selectEl.dataset.enhanced === 'true') return;
+  selectEl.dataset.enhanced = 'true';
+  selectEl.style.display = 'none';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'custom-dropdown';
+  wrapper.id = `${selectId}_customDropdown`;
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'custom-dropdown-trigger';
+  trigger.setAttribute('aria-expanded', 'false');
+
+  const selectedSpan = document.createElement('span');
+  selectedSpan.className = 'custom-dropdown-selected';
+
+  const chevron = document.createElement('i');
+  chevron.setAttribute('data-lucide', 'chevron-down');
+  chevron.className = 'custom-dropdown-chevron';
+  chevron.style.cssText = 'width: 16px; height: 16px;';
+
+  trigger.appendChild(selectedSpan);
+  trigger.appendChild(chevron);
+
+  const menu = document.createElement('div');
+  menu.className = 'custom-dropdown-menu';
+  menu.style.display = 'none';
+
+  wrapper.appendChild(trigger);
+  wrapper.appendChild(menu);
+  selectEl.parentNode.insertBefore(wrapper, selectEl.nextSibling);
+
+  function syncDropdown() {
+    const opts = Array.from(selectEl.options);
+    const currentVal = selectEl.value;
+    const selectedOpt = opts.find(o => o.value === currentVal) || opts[0];
+    const displayText = selectedOpt ? selectedOpt.textContent : placeholder;
+
+    selectedSpan.innerHTML = `<i data-lucide="${iconName}" style="width: 15px; height: 15px; color: var(--primary-green); flex-shrink: 0;"></i><span>${displayText}</span>`;
+
+    menu.innerHTML = '';
+    opts.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const isSelected = opt.value === currentVal;
+      btn.className = `custom-dropdown-item${isSelected ? ' active' : ''}`;
+      btn.innerHTML = `
+        <span class="custom-dropdown-item-left">
+          <i data-lucide="${iconName}" style="width: 15px; height: 15px; flex-shrink: 0;"></i>
+          <span>${opt.textContent}</span>
+        </span>
+        <i data-lucide="check" class="custom-dropdown-check" style="width: 15px; height: 15px; flex-shrink: 0;"></i>
+      `;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectEl.value = opt.value;
+        menu.style.display = 'none';
+        trigger.setAttribute('aria-expanded', 'false');
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        syncDropdown();
+      });
+      menu.appendChild(btn);
+    });
+
+    if (typeof initIcons === 'function') initIcons();
+  }
+
+  selectEl._syncCustomDropdown = syncDropdown;
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = menu.style.display === 'flex';
+    closeAllCustomDropdowns(wrapper);
+    menu.style.display = isOpen ? 'none' : 'flex';
+    trigger.setAttribute('aria-expanded', String(!isOpen));
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!wrapper.contains(e.target)) {
+      menu.style.display = 'none';
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  selectEl.addEventListener('change', syncDropdown);
+
+  const observer = new MutationObserver(syncDropdown);
+  observer.observe(selectEl, { childList: true, subtree: true });
+
+  syncDropdown();
+}
+
 function setupBroadcastStudio() {
+  enhanceSelectToCustomDropdown('broadcastTemplateSelect', 'file-check-2', 'Select a template...');
+  enhanceSelectToCustomDropdown('deptSelectDropdown', 'briefcase', 'Select Department...');
+  enhanceSelectToCustomDropdown('employeeSelectDropdown', 'user', '-- Choose an Employee --');
+
   const select = document.getElementById('broadcastTemplateSelect');
   if (select) {
     select.addEventListener('change', updateTemplateVariablesAndPreview);
@@ -679,7 +795,10 @@ function setupBroadcastStudio() {
       if (csvWrap) csvWrap.style.display = 'block';
     } else {
       const empSelect = document.getElementById('employeeSelectDropdown');
-      if (empSelect) empSelect.value = '';
+      if (empSelect) {
+        empSelect.value = '';
+        if (empSelect._syncCustomDropdown) empSelect._syncCustomDropdown();
+      }
       resetRecipientVariableToDefault();
     }
     renderLivePreview();
@@ -689,6 +808,7 @@ function setupBroadcastStudio() {
     recipientTrigger.addEventListener('click', (e) => {
       e.stopPropagation();
       const isOpen = recipientMenu.style.display === 'flex';
+      closeAllCustomDropdowns(recipientDropdown);
       recipientMenu.style.display = isOpen ? 'none' : 'flex';
       recipientTrigger.setAttribute('aria-expanded', String(!isOpen));
     });
@@ -833,7 +953,7 @@ function setupBroadcastStudio() {
 function resetRecipientVariableToDefault() {
   const firstVarInput = document.querySelector('.var-field[data-tag="{{1}}"]');
   if (firstVarInput) {
-    firstVarInput.value = "{Employee Name}";
+    firstVarInput.value = "";
     renderLivePreview();
   }
 }
@@ -1006,44 +1126,80 @@ function updateTemplateVariablesAndPreview() {
       const card = document.createElement('div');
       card.className = 'var-input-card';
       card.innerHTML = `
-        <label style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-          <span style="font-size: 12px; font-weight: 700; color: #1e293b;">${config.label}</span>
-          <span class="var-tag" style="background: #e0f2fe; color: #0369a1; font-weight: 700; border-radius: 4px; padding: 2px 8px; font-size: 11px;">{{${displayVarName}}}</span>
-        </label>
-        <input type="text" class="form-input var-field" data-tag="${m}" data-varname="${displayVarName}" value="${config.defaultVal}" placeholder="${config.placeholder}">
-        ${idx === 0 ? `
-          <div style="font-size: 11px; color: #059669; font-weight: 600; display: flex; align-items: center; gap: 4px; margin-top: 3px;">
-            <span style="background: #dcfce7; color: #15803d; padding: 1px 6px; border-radius: 3px; font-weight: 700; font-size: 10px;">⚡ Dynamic</span>
-            <span>Auto-filled per recipient (e.g. Ali Musa, Ahmed Raza)</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label style="font-size: 12px; font-weight: 700; color: #1e293b; margin: 0;">${config.label}</label>
+          <div class="custom-dropdown insert-var-dropdown" style="flex: 0 0 auto; width: auto;">
+            <button type="button" class="insert-var-trigger" aria-expanded="false" title="Insert dynamic placeholder">
+              <i data-lucide="plus" style="width: 12px; height: 12px; color: var(--primary-green);"></i>
+              <span>Insert Variable</span>
+              <i data-lucide="chevron-down" class="custom-dropdown-chevron" style="width: 12px; height: 12px;"></i>
+            </button>
+            <div class="custom-dropdown-menu insert-var-menu" style="display: none;">
+              <button type="button" class="custom-dropdown-item insert-var-option" data-target="${m}" data-insert="{name}">
+                <span class="custom-dropdown-item-left"><i data-lucide="user" style="width: 13px; height: 13px;"></i><span>Employee Name</span></span>
+                <span class="insert-var-code">{name}</span>
+              </button>
+              <button type="button" class="custom-dropdown-item insert-var-option" data-target="${m}" data-insert="{department}">
+                <span class="custom-dropdown-item-left"><i data-lucide="briefcase" style="width: 13px; height: 13px;"></i><span>Department</span></span>
+                <span class="insert-var-code">{department}</span>
+              </button>
+              <button type="button" class="custom-dropdown-item insert-var-option" data-target="${m}" data-insert="{role}">
+                <span class="custom-dropdown-item-left"><i data-lucide="badge-check" style="width: 13px; height: 13px;"></i><span>Role</span></span>
+                <span class="insert-var-code">{role}</span>
+              </button>
+              <button type="button" class="custom-dropdown-item insert-var-option" data-target="${m}" data-insert="{date}">
+                <span class="custom-dropdown-item-left"><i data-lucide="calendar" style="width: 13px; height: 13px;"></i><span>Current Date</span></span>
+                <span class="insert-var-code">{date}</span>
+              </button>
+            </div>
           </div>
-        ` : ''}
-        <div style="display: flex; gap: 4px; align-items: center; margin-top: 4px; flex-wrap: wrap;">
-          <span style="font-size: 10px; color: #64748b; font-weight: 600;">Insert:</span>
-          <button type="button" class="btn-var-chip" data-target="${m}" data-insert="{name}" style="padding: 1px 6px; font-size: 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer; color: #334155;">+ {name}</button>
-          <button type="button" class="btn-var-chip" data-target="${m}" data-insert="{department}" style="padding: 1px 6px; font-size: 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer; color: #334155;">+ {department}</button>
-          <button type="button" class="btn-var-chip" data-target="${m}" data-insert="{role}" style="padding: 1px 6px; font-size: 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer; color: #334155;">+ {role}</button>
-          <button type="button" class="btn-var-chip" data-target="${m}" data-insert="{date}" style="padding: 1px 6px; font-size: 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer; color: #334155;">+ {date}</button>
         </div>
+        <input type="text" class="form-input var-field" data-tag="${m}" data-varname="${displayVarName}" value="" placeholder="${config.placeholder}">
       `;
       varContainer.appendChild(card);
     });
 
-    // Handle tag chip clicks
-    varContainer.querySelectorAll('.btn-var-chip').forEach(btn => {
-      btn.addEventListener('click', () => {
+    // Handle Insert Variable dropdown toggles & option clicks
+    varContainer.querySelectorAll('.insert-var-dropdown').forEach(dd => {
+      const trigger = dd.querySelector('.insert-var-trigger');
+      const menu = dd.querySelector('.insert-var-menu');
+      if (trigger && menu) {
+        trigger.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isOpen = menu.style.display === 'flex';
+          closeAllCustomDropdowns(dd);
+          menu.style.display = isOpen ? 'none' : 'flex';
+          trigger.setAttribute('aria-expanded', String(!isOpen));
+        });
+      }
+    });
+
+    varContainer.querySelectorAll('.insert-var-option').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const targetTag = btn.getAttribute('data-target');
         const insertText = btn.getAttribute('data-insert');
         const inp = varContainer.querySelector(`.var-field[data-tag="${targetTag}"]`);
+        const dd = btn.closest('.insert-var-dropdown');
+        if (dd) {
+          const menu = dd.querySelector('.insert-var-menu');
+          const trigger = dd.querySelector('.insert-var-trigger');
+          if (menu) menu.style.display = 'none';
+          if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        }
         if (inp) {
-          if (inp.value === "{Employee Name}" || !inp.value.trim()) {
+          if (!inp.value.trim()) {
             inp.value = insertText;
           } else {
-            inp.value += " " + insertText;
+            inp.value += ' ' + insertText;
           }
+          inp.focus();
           inp.dispatchEvent(new Event('input'));
         }
       });
     });
+
+    if (typeof initIcons === 'function') initIcons();
   } else {
     varContainer.innerHTML = `<p style="font-size: 12px; color: #64748b;">This template does not require dynamic variables.</p>`;
   }
@@ -1264,7 +1420,8 @@ function renderLivePreview() {
 
   varInputs.forEach(input => {
     const tag = input.getAttribute('data-tag');
-    let val = input.value || `[${tag}]`;
+    const varName = input.getAttribute('data-varname') || tag;
+    let val = input.value || `{{${varName}}}`;
     values.push(val);
     
     // Friendly dynamic preview for {Employee Name} or {name} without polluting message text
@@ -1341,7 +1498,14 @@ async function handleSendBroadcast() {
   }
 
   const varInputs = document.querySelectorAll('.var-field');
-  const variables = Array.from(varInputs).map(inp => inp.value);
+  const emptyVar = Array.from(varInputs).find(inp => !inp.value.trim());
+  if (emptyVar) {
+    const varLabel = emptyVar.getAttribute('data-varname') || 'variable';
+    alert(`Please fill in "${varLabel}" before sending the broadcast.`);
+    emptyVar.focus();
+    return;
+  }
+  const variables = Array.from(varInputs).map(inp => inp.value.trim());
 
   const previewEl = document.getElementById('broadcastContentPreview');
   const bodyText = previewEl ? previewEl.value : '';
@@ -2657,6 +2821,7 @@ window.selectEmployeeForBroadcast = async function(empId) {
   const empSelect = document.getElementById('employeeSelectDropdown');
   if (empSelect) {
     empSelect.value = empId;
+    if (empSelect._syncCustomDropdown) empSelect._syncCustomDropdown();
     syncSelectedEmployeeWithTemplate();
   }
 };
