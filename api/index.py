@@ -1349,7 +1349,7 @@ def get_chats():
     database = get_db()
     if database is not None:
         try:
-            chat_docs = list(database["chats"].find({}, {"messages": {"$slice": -1}, "messages.media_url": 0}))
+            chat_docs = list(database["chats"].find({}, {"messages": {"$slice": -1}}))
             messages_db = {(d.get("phone") or d.get("_id")): d for d in chat_docs if (d.get("phone") or d.get("_id"))}
         except Exception:
             messages_db = load_json("messages.json", {})
