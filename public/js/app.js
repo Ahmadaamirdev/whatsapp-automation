@@ -739,9 +739,21 @@ function setupBroadcastStudio() {
       const file = e.target.files[0];
       if (!file) return;
 
+      const isExcel = /\.(xlsx|xls)$/i.test(file.name);
       const reader = new FileReader();
       reader.onload = function(evt) {
-        const text = evt.target.result;
+        let text = '';
+        if (isExcel) {
+          if (typeof XLSX === 'undefined') {
+            alert('Excel parser is still loading. Please try again in a moment.');
+            return;
+          }
+          const wb = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+          const firstSheet = wb.SheetNames[0];
+          text = XLSX.utils.sheet_to_csv(wb.Sheets[firstSheet]);
+        } else {
+          text = evt.target.result;
+        }
         const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         if (lines.length < 2) {
           alert('CSV file is empty or missing data rows.');
@@ -783,7 +795,11 @@ function setupBroadcastStudio() {
         }
         renderLivePreview();
       };
-      reader.readAsText(file);
+      if (isExcel) {
+        reader.readAsArrayBuffer(file);
+      } else {
+        reader.readAsText(file);
+      }
     });
   }
 

@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/css/style.css?v=2.7.6">
   <!-- Lucide Icons for clean SVG rendering -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -301,7 +302,7 @@
                         <i data-lucide="file-up" style="width: 13px; height: 13px;"></i>
                         <span>Choose CSV File</span>
                       </label>
-                      <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display: none;">
+                      <input type="file" id="csvFileInput" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display: none;">
                       <button type="button" id="btnDownloadSampleCsv" class="btn-action-view" style="font-size: 11px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px; background: #ffffff; color: #475569;">
                         <i data-lucide="download" style="width: 13px; height: 13px;"></i>
                         <span>Download Sample Template</span>
