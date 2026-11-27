@@ -1062,6 +1062,16 @@ function updateTemplateVariablesAndPreview() {
         const formData = new FormData();
         formData.append('file', file);
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        if (!res.ok) {
+          const msg = res.status === 413
+            ? 'File exceeds 4.5 MB serverless limit. For larger videos, paste a public https:// MP4 link.'
+            : `Upload failed (HTTP ${res.status})`;
+          if (bcFileStatus) {
+            bcFileStatus.textContent = msg;
+            bcFileStatus.style.color = '#dc2626';
+          }
+          return;
+        }
         const data = await res.json();
 
         if (data.success && data.media_id) {
@@ -1697,6 +1707,15 @@ function setupWhatsAppWebMessaging() {
           const formData = new FormData();
           formData.append('file', selectedChatFile);
           const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+          if (!uploadRes.ok) {
+            alert(uploadRes.status === 413
+              ? 'File exceeds 4.5 MB serverless upload limit. For larger videos, paste a public https:// MP4 link.'
+              : `File upload failed (HTTP ${uploadRes.status})`);
+            btnSendMedia.disabled = false;
+            btnSendMedia.innerHTML = '<i data-lucide="send" style="width: 14px; height: 14px;"></i><span>Send to WhatsApp</span>';
+            initIcons();
+            return;
+          }
           const uploadData = await uploadRes.json();
           if (!uploadData.success) {
             alert('File upload failed: ' + (uploadData.error || 'Server error'));
