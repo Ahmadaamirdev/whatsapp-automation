@@ -1470,9 +1470,6 @@ def get_root():
         )
     return {"message": "Al Haditha WhatsApp System API is running"}
 
-if STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static_dir")
-    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
 
 @app.get("/api/broadcasts/{broadcast_id}/details")
 @app.get("/broadcasts/{broadcast_id}/details")
@@ -1533,3 +1530,7 @@ async def upload_file(file: UploadFile = File(...)):
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static_dir")
+    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
