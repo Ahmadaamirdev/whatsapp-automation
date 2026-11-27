@@ -1372,11 +1372,32 @@ async function loadActiveChat(phone, scrollBottom = false) {
           if (m.media_url) {
             const mType = (m.media_type || 'image').toLowerCase();
             if (mType === 'image') {
-              mediaHtml = `<img src="${m.media_url}" style="width: 100%; max-height: 220px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; display: block; cursor: pointer;" onclick="window.open('${m.media_url}', '_blank')">`;
+              mediaHtml = `
+                <div style="position: relative; border-radius: 8px; overflow: hidden; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); background: #f8fafc; max-width: 320px;">
+                  <img src="${m.media_url}" 
+                       alt="Image attachment" 
+                       style="width: 100%; max-height: 260px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.15s ease;" 
+                       onclick="window.open('${m.media_url}', '_blank')"
+                       title="Click to view full image"
+                       onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                  <div style="display: none; padding: 12px; background: rgba(0,0,0,0.04); font-size: 12px; color: #64748b; align-items: center; gap: 8px;">
+                    <span>📷</span><span>Image attachment</span>
+                  </div>
+                </div>`;
             } else if (mType === 'video') {
-              mediaHtml = `<video src="${m.media_url}" controls style="width: 100%; max-height: 220px; border-radius: 6px; margin-bottom: 6px; display: block;"></video>`;
+              mediaHtml = `
+                <div style="position: relative; border-radius: 8px; overflow: hidden; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); background: #000; max-width: 320px;">
+                  <video src="${m.media_url}" controls style="width: 100%; max-height: 260px; border-radius: 8px; display: block;"></video>
+                </div>`;
             } else {
-              mediaHtml = `<a href="${m.media_url}" target="_blank" style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.06); padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; text-decoration: none; color: inherit; font-size: 12px; font-weight: 600;"><span style="color: #dc2626;">📄</span><span>View Document (PDF)</span></a>`;
+              mediaHtml = `
+                <a href="${m.media_url}" target="_blank" style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.08); padding: 10px 14px; border-radius: 8px; margin-bottom: 6px; text-decoration: none; color: inherit; font-size: 13px; font-weight: 500; max-width: 320px;">
+                  <span style="font-size: 22px;">📄</span>
+                  <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <div style="font-weight: 600; color: #0f172a;">Attachment Document</div>
+                    <div style="font-size: 11px; color: #64748b;">Click to view file</div>
+                  </div>
+                </a>`;
             }
           }
 
@@ -1442,6 +1463,7 @@ function setupWhatsAppWebMessaging() {
   const urlWrap = document.getElementById('chatUrlWrap');
 
   let selectedChatFile = null;
+  let selectedChatFileDataUrl = null;
 
   if (dropzone && fileInput) {
     dropzone.onclick = () => fileInput.click();
@@ -1454,10 +1476,25 @@ function setupWhatsAppWebMessaging() {
       selectedChatFile = file;
 
       let icon = '📄';
-      if (file.type.startsWith('image/')) icon = '📷';
-      else if (file.type.startsWith('video/')) icon = '🎥';
+      const isImg = file.type.startsWith('image/') && !file.name.toLowerCase().endsWith('.svg');
+      const isVid = file.type.startsWith('video/');
 
-      if (fileIconEl) fileIconEl.textContent = icon;
+      if (isImg) {
+        icon = '📷';
+        const reader = new FileReader();
+        reader.onload = (re) => {
+          selectedChatFileDataUrl = re.target.result;
+          if (fileIconEl) {
+            fileIconEl.innerHTML = `<img src="${selectedChatFileDataUrl}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">`;
+          }
+        };
+        reader.readAsDataURL(file);
+      } else {
+        selectedChatFileDataUrl = null;
+        if (isVid) icon = '🎥';
+        if (fileIconEl) fileIconEl.textContent = icon;
+      }
+
       if (fileNameEl) fileNameEl.textContent = file.name;
       if (fileSizeEl) fileSizeEl.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
       if (filePreview) filePreview.style.display = 'flex';
@@ -1518,10 +1555,16 @@ function setupWhatsAppWebMessaging() {
 
       try {
         if (selectedChatFile) {
-          // Detect type
-          if (selectedChatFile.type.startsWith('video/')) detectedType = 'video';
-          else if (selectedChatFile.type === 'application/pdf') detectedType = 'document';
-          else detectedType = 'image';
+          const lowerName = selectedChatFile.name.toLowerCase();
+          if (selectedChatFile.type.startsWith('video/') || lowerName.match(/\.(mp4|3gp|mov|avi)$/)) {
+            detectedType = 'video';
+          } else if (lowerName.endsWith('.svg') || selectedChatFile.type.includes('svg') || selectedChatFile.type === 'application/pdf' || lowerName.endsWith('.pdf')) {
+            detectedType = 'document';
+          } else if (selectedChatFile.type.startsWith('image/') || lowerName.match(/\.(jpg|jpeg|png|webp|gif)$/)) {
+            detectedType = 'image';
+          } else {
+            detectedType = 'document';
+          }
 
           // Upload to /api/upload
           const formData = new FormData();
@@ -1549,6 +1592,7 @@ function setupWhatsAppWebMessaging() {
             text: caption,
             media_url: url,
             media_id: mediaId,
+            preview_url: selectedChatFileDataUrl,
             media_type: detectedType
           })
         });

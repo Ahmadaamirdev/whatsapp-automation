@@ -208,7 +208,7 @@
     "name": "Staff (+923087786638)",
     "role": "Employee",
     "unread_count": 0,
-    "last_activity": "10:17 PM",
+    "last_activity": "08:14 PM",
     "messages": [
       {
         "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSMENCRkFCNUIwODk1RkIxM0NDAA==",
@@ -262,6 +262,14 @@
         "time": "10:17 PM",
         "timestamp": "2026-11-26T17:17:13.693069Z",
         "status": "delivered"
+      },
+      {
+        "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAEhgUM0EyNzc2MjExMzE3NjNGQzczMTQA",
+        "direction": "incoming",
+        "sender": "Staff (+923087786638)",
+        "text": "[sticker message]",
+        "time": "08:14 PM",
+        "timestamp": "2026-11-27T15:14:13.156732Z"
       }
     ],
     "phone": "+923087786638"
@@ -320,6 +328,34 @@
       }
     ],
     "phone": "+923124494540"
+  },
+  "+968 7978 3152": {
+    "employee_id": "EMP-0006",
+    "name": "shoaib bhai",
+    "role": "Employee • Operations",
+    "unread_count": 0,
+    "last_activity": "10:17 PM",
+    "messages": [
+      {
+        "id": "wamid.HBgLOTY4Nzk3ODMxNTIVAgARGBJFNzA0QzM2MjY4NjQ5ODBEM0EA",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear shoaib bhai, please be advised of the following announcement regarding holiday update :\n\nfhfvjfjhgmjhjmmjnhf\n\nThank you for your cooperation.",
+        "time": "10:12 PM",
+        "timestamp": "2026-11-26T17:12:16.180597Z",
+        "status": "sent"
+      },
+      {
+        "id": "wamid.HBgLOTY4Nzk3ODMxNTIVAgARGBIzRDc1OTJFQTBFRjIyM0I5OEIA",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear shoaib bhai, please be advised of the following announcement regarding meeting update :\n\nthe meweting will be held tommorow \n\nThank you for your cooperation.",
+        "time": "10:17 PM",
+        "timestamp": "2026-11-26T17:17:14.228127Z",
+        "status": "sent"
+      }
+    ],
+    "phone": "+968 7978 3152"
   },
   "+96879783152": {
     "employee_id": "EMP-1001",

@@ -780,6 +780,7 @@ class BroadcastSendRequest(BaseModel):
     recipient_filter_value: Optional[str] = None
     test_number: Optional[str] = None  # Send real message to this phone number
     media_url: Optional[str] = None
+    media_id: Optional[str] = None
     media_type: Optional[str] = None  # IMAGE, VIDEO, DOCUMENT
     csv_recipients: Optional[List[Dict[str, Any]]] = None
 
@@ -893,18 +894,25 @@ def send_broadcast(req: BroadcastSendRequest):
         emp_vars, emp_chat_text = personalize_for_employee(req.variables, emp, raw_template_body)
         components = []
 
-        # Add media header component if template has media or media_url is supplied
-        if req.media_url and req.media_type:
+        # Add media header component if template has media (via media_id or public link)
+        if (req.media_id or req.media_url) and req.media_type:
             m_type = req.media_type.lower()
-            components.append({
-                "type": "header",
-                "parameters": [
-                    {
-                        "type": m_type,
-                        m_type: {"link": req.media_url}
-                    }
-                ]
-            })
+            media_param = {}
+            if req.media_id:
+                media_param = {"id": req.media_id}
+            elif req.media_url and req.media_url.startswith("http"):
+                media_param = {"link": req.media_url}
+            
+            if media_param:
+                components.append({
+                    "type": "header",
+                    "parameters": [
+                        {
+                            "type": m_type,
+                            m_type: media_param
+                        }
+                    ]
+                })
 
         if emp_vars:
             parameters = [{"type": "text", "text": str(v)} for v in emp_vars]
@@ -1214,7 +1222,9 @@ def get_chat_history(phone: str):
 class SendChatMessageRequest(BaseModel):
     text: Optional[str] = ""
     media_url: Optional[str] = None
+    media_id: Optional[str] = None
     media_type: Optional[str] = None  # image, video, document
+    preview_url: Optional[str] = None
 
 @app.post("/api/chats/{phone}/send")
 @app.post("/chats/{phone}/send")
@@ -1233,16 +1243,24 @@ def send_chat_message(phone: str, req: SendChatMessageRequest):
                 "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
                 "Content-Type": "application/json"
             }
-            if req.media_url and req.media_type:
+            if (req.media_id or req.media_url) and req.media_type:
                 m_type = req.media_type.lower()
+                if m_type not in ["image", "video", "document", "audio"]:
+                    m_type = "document"
+                media_param = {}
+                if req.media_id:
+                    media_param["id"] = req.media_id
+                elif req.media_url and req.media_url.startswith("http"):
+                    media_param["link"] = req.media_url
+                if req.text:
+                    media_param["caption"] = req.text
+
                 payload = {
                     "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
                     "to": clean_phone,
                     "type": m_type,
-                    m_type: {
-                        "link": req.media_url,
-                        **({"caption": req.text} if req.text else {})
-                    }
+                    m_type: media_param
                 }
             else:
                 payload = {
@@ -1285,9 +1303,12 @@ def send_chat_message(phone: str, req: SendChatMessageRequest):
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "status": initial_status
     }
-    if req.media_url:
-        new_msg["media_url"] = req.media_url
+    display_media = req.preview_url or req.media_url
+    if display_media:
+        new_msg["media_url"] = display_media
         new_msg["media_type"] = req.media_type or "image"
+    if req.media_id:
+        new_msg["media_id"] = req.media_id
     if error_msg:
         new_msg["error"] = error_msg
 
