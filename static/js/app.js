@@ -736,6 +736,8 @@ function enhanceSelectToCustomDropdown(selectId, iconName = 'list', placeholder 
   syncDropdown();
 }
 
+let csvRecipientsList = [];
+
 function setupBroadcastStudio() {
   enhanceSelectToCustomDropdown('broadcastTemplateSelect', 'file-check-2', 'Select a template...');
   enhanceSelectToCustomDropdown('deptSelectDropdown', 'briefcase', 'Select Department...');
@@ -757,7 +759,7 @@ function setupBroadcastStudio() {
   const btnUnselectEmp = document.getElementById('btnUnselectEmployee');
   const btnUnselectDept = document.getElementById('btnUnselectDept');
   const csvWrap = document.getElementById('csvSelectorWrap');
-  let csvRecipientsList = [];
+
 
   const recipientModeMeta = {
     all: { label: 'Everyone (All Employees)', icon: 'globe' },
@@ -911,7 +913,18 @@ function setupBroadcastStudio() {
 
         if (csvStatus) {
           csvStatus.style.display = 'block';
-          csvStatus.innerHTML = `✓ Successfully loaded <b>${csvRecipientsList.length} recipients</b> from <i>${file.name}</i>`;
+          const previewRows = csvRecipientsList.map((r, idx) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; border-bottom: 1px solid #dcfce7; font-size: 11px; color: #1e293b;">
+              <span><b>${idx + 1}. ${r.name}</b> <span style="color: #64748b;">(${r.department})</span></span>
+              <span style="font-family: monospace; color: #059669; font-weight: 600;">${r.phone}</span>
+            </div>
+          `).join('');
+          csvStatus.innerHTML = `
+            <div style="margin-bottom: 6px;">✓ Successfully loaded <b>${csvRecipientsList.length} recipients</b> from <i>${file.name}</i></div>
+            <div style="max-height: 150px; overflow-y: auto; background: #ffffff; border: 1px solid #bbf7d0; border-radius: 6px; text-align: left;">
+              ${previewRows}
+            </div>
+          `;
         }
         renderLivePreview();
       };
