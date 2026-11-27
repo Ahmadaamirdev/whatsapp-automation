@@ -725,7 +725,15 @@ def get_merged_employees():
         if p:
             existing_clean_phones.add(p.replace("+", "").replace(" ", "").replace("-", "").strip())
 
-    messages_db = load_json("messages.json", {})
+    database = get_db()
+    if database is not None:
+        try:
+            chat_docs = list(database["chats"].find({}, {"messages": 0}))
+            messages_db = {(d.get("phone") or d.get("_id")): d for d in chat_docs if (d.get("phone") or d.get("_id"))}
+        except Exception:
+            messages_db = load_json("messages.json", {})
+    else:
+        messages_db = load_json("messages.json", {})
     added_from_messages = []
     
     idx = 1
@@ -1338,7 +1346,15 @@ def get_broadcasts_tracker(
 @app.get("/api/chats")
 @app.get("/chats")
 def get_chats():
-    messages_db = load_json("messages.json", {})
+    database = get_db()
+    if database is not None:
+        try:
+            chat_docs = list(database["chats"].find({}, {"messages": {"$slice": -1}, "messages.media_url": 0}))
+            messages_db = {(d.get("phone") or d.get("_id")): d for d in chat_docs if (d.get("phone") or d.get("_id"))}
+        except Exception:
+            messages_db = load_json("messages.json", {})
+    else:
+        messages_db = load_json("messages.json", {})
     chats_list = []
     
     for phone, data in messages_db.items():
