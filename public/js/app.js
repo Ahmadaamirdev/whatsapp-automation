@@ -248,7 +248,10 @@ function renderDashboardBroadcasts(list) {
       <td style="color: #0284c7; font-weight: 600;">${bc.read_pct || 91.5}%</td>
       <td><span class="status-badge active"><span class="badge-dot"></span>${bc.status || 'Completed'}</span></td>
       <td>
-        <button class="btn-action-view" onclick="viewBroadcastDetails('${bc.id || ''}')">View</button>
+        <button type="button" class="btn-action-view" onclick="viewBroadcastDetails('${bc.id || ''}')" title="View Detailed Delivery Logs & Failure Reasons" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 700; color: #0284c7; border-color: #bae6fd; background: #f0f9ff;">
+          <i data-lucide="eye" style="width: 13px; height: 13px;"></i>
+          <span>View Log</span>
+        </button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -292,17 +295,113 @@ function renderFullBroadcasts(list) {
       <td style="color: #9333ea; font-weight: 600;">${bc.replies_count || 0}</td>
       <td><span class="status-badge active"><span class="badge-dot"></span>${bc.status || 'Completed'}</span></td>
       <td>
-        <button class="btn-action-view" onclick="viewBroadcastDetails('${bc.id || ''}')">View</button>
+        <button type="button" class="btn-action-view" onclick="viewBroadcastDetails('${bc.id || ''}')" title="View Detailed Delivery Logs & Failure Reasons" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 700; color: #0284c7; border-color: #bae6fd; background: #f0f9ff;">
+          <i data-lucide="eye" style="width: 13px; height: 13px;"></i>
+          <span>View Log</span>
+        </button>
       </td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-window.viewBroadcastDetails = function(bcId) {
-  const bc = allBroadcasts.find(b => b.id === bcId);
+window.viewBroadcastDetails = async function(bcId) {
+  let bc = allBroadcasts.find(b => b.id === bcId);
+  try {
+    const res = await fetch(`/api/broadcasts/${encodeURIComponent(bcId)}/details`);
+    if (res.ok) {
+      bc = await res.json();
+    }
+  } catch (e) {
+    console.error('Error fetching broadcast details:', e);
+  }
+
   if (!bc) return;
-  alert(`Broadcast: ${bc.template}\n\nContent:\n${bc.content}\n\nRecipients: ${bc.recipients_count}\nDelivery Rate: ${bc.delivered_pct}%\nRead Rate: ${bc.read_pct}%\nStatus: ${bc.status}`);
+
+  const modal = document.getElementById('broadcastDetailModal');
+  if (!modal) return;
+
+  document.getElementById('modalDetailTitle').textContent = `Broadcast Report: ${bc.template || bc.template_name || 'Announcement'}`;
+  document.getElementById('modalDetailSubtitle').textContent = `ID: ${bc.id} • Sent on ${bc.date || 'Recent'} • Target: ${bc.recipient_filter || 'All'}`;
+  document.getElementById('modalDetailTotal').textContent = Number(bc.recipients_count || (bc.messages ? bc.messages.length : 1)).toLocaleString();
+  document.getElementById('modalDetailDelivered').textContent = Number(bc.sent_count || bc.recipients_count || 1).toLocaleString();
+  document.getElementById('modalDetailRate').textContent = `${bc.delivered_pct || 100}%`;
+  document.getElementById('modalDetailFailed').textContent = Number(bc.failed_count || 0).toLocaleString();
+
+  const messagesList = bc.messages || [];
+  const tbody = document.getElementById('modalDetailTableBody');
+  const searchInput = document.getElementById('modalDetailSearch');
+  let activeFilter = 'all';
+
+  function renderModalRows() {
+    if (!tbody) return;
+    const term = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    const filtered = messagesList.filter(m => {
+      const matchSearch = !term ||
+        (m.name || '').toLowerCase().includes(term) ||
+        (m.phone || '').includes(term) ||
+        (m.department || '').toLowerCase().includes(term);
+
+      const isFailed = (m.status || '').toLowerCase() === 'failed';
+      const isDelivered = (m.status || '').toLowerCase() === 'delivered' || (m.status || '').toLowerCase() === 'sent' || (m.status || '').toLowerCase() === 'read' || (m.status || '').toLowerCase() === 'replied';
+
+      if (activeFilter === 'failed') return matchSearch && isFailed;
+      if (activeFilter === 'delivered') return matchSearch && isDelivered;
+      return matchSearch;
+    });
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #94a3b8; padding: 20px;">No matching recipient delivery records found.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = '';
+    filtered.forEach(m => {
+      const isFailed = (m.status || '').toLowerCase() === 'failed';
+      const isDelivered = (m.status || '').toLowerCase() === 'delivered' || (m.status || '').toLowerCase() === 'read' || (m.status || '').toLowerCase() === 'replied';
+      
+      const statusBadge = isFailed
+        ? '<span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">✗ Failed</span>'
+        : isDelivered
+        ? '<span style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">✓ Delivered</span>'
+        : '<span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">Sent</span>';
+
+      const reasonHtml = isFailed
+        ? `<span style="color: #dc2626; font-weight: 600;">⚠ Meta Error: ${m.error || 'Recipient number not registered on WhatsApp or rejected by Meta'}</span>`
+        : `<span style="color: #059669;">✓ Successfully delivered to WhatsApp</span>`;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-weight: 700; color: #1e293b; padding: 8px 12px;">${m.name || 'Staff Member'}</td>
+        <td style="font-family: monospace; color: #475569; padding: 8px 12px;">${m.phone || '-'}</td>
+        <td style="color: #64748b; padding: 8px 12px;">${m.department || 'Operations'}</td>
+        <td style="padding: 8px 12px;">${statusBadge}</td>
+        <td style="color: #64748b; padding: 8px 12px;">${m.time || '-'}</td>
+        <td style="padding: 8px 12px;">${reasonHtml}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  if (searchInput) searchInput.oninput = renderModalRows;
+
+  document.querySelectorAll('.modal-filter-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.modal-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeFilter = btn.getAttribute('data-filter');
+      renderModalRows();
+    };
+  });
+
+  renderModalRows();
+  modal.style.display = 'flex';
+
+  const closeBtn1 = document.getElementById('btnCloseDetailModal');
+  const closeBtn2 = document.getElementById('btnCloseDetailModal2');
+  if (closeBtn1) closeBtn1.onclick = () => modal.style.display = 'none';
+  if (closeBtn2) closeBtn2.onclick = () => modal.style.display = 'none';
 };
 
 // Filter event listeners
@@ -503,10 +602,15 @@ function setupBroadcastStudio() {
   const btnUnselectEmp = document.getElementById('btnUnselectEmployee');
   const btnUnselectDept = document.getElementById('btnUnselectDept');
 
+  const pillCsv = document.getElementById('pillCsv');
+  const csvWrap = document.getElementById('csvSelectorWrap');
+  let csvRecipientsList = [];
+
   window.setRecipientMode = function(mode) {
-    [pillAll, pillDept, pillEmployee].forEach(p => p && p.classList.remove('active'));
+    [pillAll, pillDept, pillEmployee, pillCsv].forEach(p => p && p.classList.remove('active'));
     if (deptWrap) deptWrap.style.display = 'none';
     if (employeeWrap) employeeWrap.style.display = 'none';
+    if (csvWrap) csvWrap.style.display = 'none';
 
     if (mode === 'department') {
       if (pillDept) pillDept.classList.add('active');
@@ -515,6 +619,9 @@ function setupBroadcastStudio() {
       if (pillEmployee) pillEmployee.classList.add('active');
       if (employeeWrap) employeeWrap.style.display = 'block';
       syncSelectedEmployeeWithTemplate();
+    } else if (mode === 'csv') {
+      if (pillCsv) pillCsv.classList.add('active');
+      if (csvWrap) csvWrap.style.display = 'block';
     } else {
       // Default: 'all' (Everyone)
       if (pillAll) pillAll.classList.add('active');
@@ -522,28 +629,99 @@ function setupBroadcastStudio() {
       if (empSelect) empSelect.value = '';
       resetRecipientVariableToDefault();
     }
+    renderLivePreview();
   };
 
-  // Toggle selection: clicking an active pill unselects it and returns to Everyone
-  if (pillAll) {
-    pillAll.addEventListener('click', () => setRecipientMode('all'));
-  }
-  if (pillDept) {
-    pillDept.addEventListener('click', () => {
-      if (pillDept.classList.contains('active')) {
-        setRecipientMode('all'); // Unselect
+  function bindPillToggle(el, mode) {
+    if (!el) return;
+    el.addEventListener('click', (e) => {
+      e.preventDefault(); // Prevents child input radio duplicate click event
+      if (el.classList.contains('active') && mode !== 'all') {
+        setRecipientMode('all');
       } else {
-        setRecipientMode('department');
+        setRecipientMode(mode);
       }
     });
   }
-  if (pillEmployee) {
-    pillEmployee.addEventListener('click', () => {
-      if (pillEmployee.classList.contains('active')) {
-        setRecipientMode('all'); // Unselect
-      } else {
-        setRecipientMode('employee');
-      }
+
+  bindPillToggle(pillAll, 'all');
+  bindPillToggle(pillDept, 'department');
+  bindPillToggle(pillEmployee, 'employee');
+  bindPillToggle(pillCsv, 'csv');
+
+  // CSV File Upload handling
+  const csvInput = document.getElementById('csvFileInput');
+  const csvStatus = document.getElementById('csvStatusBox');
+  const btnDownloadSample = document.getElementById('btnDownloadSampleCsv');
+
+  if (btnDownloadSample) {
+    btnDownloadSample.addEventListener('click', () => {
+      const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(
+        "Name,Phone,Department,Role\n" +
+        "Ahmed Raza,+923306579717,HR,HR Manager\n" +
+        "Shoaib Bhai,+96879783152,Operations,Site Engineer\n" +
+        "Ali Musa,+923104220217,Operations,Technician\n" +
+        "Emaad,+923124494540,Engineering,Lead Engineer\n"
+      );
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", csvContent);
+      downloadAnchor.setAttribute("download", "alhaditha_recipients_sample.csv");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    });
+  }
+
+  if (csvInput) {
+    csvInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const text = evt.target.result;
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (lines.length < 2) {
+          alert('CSV file is empty or missing data rows.');
+          return;
+        }
+
+        const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/['"]/g, ''));
+        const nameIdx = headers.findIndex(h => h.includes('name'));
+        const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('number') || h.includes('mobile'));
+        const deptIdx = headers.findIndex(h => h.includes('dept') || h.includes('department'));
+        const roleIdx = headers.findIndex(h => h.includes('role') || h.includes('designation') || h.includes('title'));
+
+        if (phoneIdx === -1) {
+          alert('CSV must contain a "Phone" column header.');
+          return;
+        }
+
+        csvRecipientsList = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',').map(c => c.trim().replace(/['"]/g, ''));
+          if (!cols[phoneIdx]) continue;
+          
+          let rawPhone = cols[phoneIdx].replace(/\s+/g, '').replace(/-/g, '');
+          if (!rawPhone.startsWith('+')) rawPhone = '+' + rawPhone;
+
+          const rec = {
+            id: `CSV-${i}`,
+            name: nameIdx !== -1 && cols[nameIdx] ? cols[nameIdx] : `Recipient ${i}`,
+            phone: rawPhone,
+            department: deptIdx !== -1 && cols[deptIdx] ? cols[deptIdx] : "Operations",
+            role: roleIdx !== -1 && cols[roleIdx] ? cols[roleIdx] : "Staff"
+          };
+          csvRecipientsList.push(rec);
+        }
+
+        if (csvStatus) {
+          csvStatus.style.display = 'block';
+          csvStatus.innerHTML = `✓ Successfully loaded <b>${csvRecipientsList.length} recipients</b> from <i>${file.name}</i>`;
+        }
+        renderLivePreview();
+      };
+      reader.readAsText(file);
     });
   }
 
@@ -783,9 +961,52 @@ function renderLivePreview() {
   const previewFooter = document.getElementById('previewFooter');
   const previewTime = document.getElementById('previewTimestamp');
 
+  // Header Media Preview
+  const previewMediaWrap = document.getElementById('previewMediaWrap');
+  const previewMediaImg = document.getElementById('previewMediaImg');
+  const previewMediaVideo = document.getElementById('previewMediaVideo');
+  const previewMediaDoc = document.getElementById('previewMediaDoc');
+  const mediaInput = document.getElementById('broadcastMediaUrlInput');
+  const mediaWrap = document.getElementById('broadcastMediaAttachmentWrap');
+
+  const headerFormat = (headerComp.format || '').toUpperCase();
+  const isMediaTpl = ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerFormat);
+
+  if (mediaWrap) {
+    mediaWrap.style.display = isMediaTpl ? 'block' : 'none';
+  }
+
+  if (previewMediaWrap) {
+    if (isMediaTpl) {
+      previewMediaWrap.style.display = 'block';
+      const mUrl = mediaInput && mediaInput.value.trim() ? mediaInput.value.trim() : (
+        headerFormat === 'IMAGE' ? 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800'
+        : headerFormat === 'VIDEO' ? 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+        : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
+      );
+      if (headerFormat === 'IMAGE' && previewMediaImg) {
+        previewMediaImg.src = mUrl;
+        previewMediaImg.style.display = 'block';
+        if (previewMediaVideo) previewMediaVideo.style.display = 'none';
+        if (previewMediaDoc) previewMediaDoc.style.display = 'none';
+      } else if (headerFormat === 'VIDEO' && previewMediaVideo) {
+        previewMediaVideo.src = mUrl;
+        previewMediaVideo.style.display = 'block';
+        if (previewMediaImg) previewMediaImg.style.display = 'none';
+        if (previewMediaDoc) previewMediaDoc.style.display = 'none';
+      } else if (previewMediaDoc) {
+        previewMediaDoc.style.display = 'flex';
+        if (previewMediaImg) previewMediaImg.style.display = 'none';
+        if (previewMediaVideo) previewMediaVideo.style.display = 'none';
+      }
+    } else {
+      previewMediaWrap.style.display = 'none';
+    }
+  }
+
   if (previewHeader) {
-    previewHeader.textContent = headerComp.text || 'Al-Haditha Energy Official Notice';
-    previewHeader.style.display = headerComp.text ? 'block' : 'none';
+    previewHeader.textContent = headerComp.text || (isMediaTpl ? '' : 'Al-Haditha Energy Notice');
+    previewHeader.style.display = (headerComp.text && !isMediaTpl) ? 'block' : 'none';
   }
 
   if (previewFooter) {
@@ -813,10 +1034,10 @@ function renderLivePreview() {
     let val = input.value || `[${tag}]`;
     values.push(val);
     
-    // Friendly dynamic preview for {Employee Name} or {name}
+    // Friendly dynamic preview for {Employee Name} or {name} without polluting message text
     let displayVal = val;
     if (val === "{Employee Name}" || val === "{name}") {
-      displayVal = `<span title="Dynamically replaced per employee on send">${activeEmpName}</span> <span style="font-size: 10px; background: #dcfce7; color: #166534; padding: 1px 4px; border-radius: 2px;">⚡ Dynamic</span>`;
+      displayVal = activeEmpName;
     }
 
     text = text.split(tag).join(`<span class="var-highlight">${displayVal}</span>`);
@@ -859,10 +1080,22 @@ async function handleSendBroadcast() {
     const empPhone = selectedOpt ? selectedOpt.getAttribute('data-phone') : null;
     testNumber = empPhone;
     targetDisplay = `${empName} (${empPhone})`;
+  } else if (recipientType === 'csv') {
+    if (!csvRecipientsList || csvRecipientsList.length === 0) {
+      alert('Please upload a valid CSV file of recipients before dispatching.');
+      return;
+    }
+    targetDisplay = `CSV File (${csvRecipientsList.length} Contacts)`;
   } else {
     // Everyone
     targetDisplay = 'Everyone (All Staff)';
   }
+
+  const mediaInput = document.getElementById('broadcastMediaUrlInput');
+  const mediaUrl = mediaInput ? mediaInput.value.trim() : null;
+  const selectTplObj = templatesList.find(t => t.name === selectedTemplate);
+  const hComp = selectTplObj ? (selectTplObj.components || []).find(c => c.type === 'HEADER') : null;
+  const mediaType = hComp ? hComp.format : null;
 
   const varInputs = document.querySelectorAll('.var-field');
   const variables = Array.from(varInputs).map(inp => inp.value);
@@ -886,7 +1119,10 @@ async function handleSendBroadcast() {
         variables: variables,
         recipient_type: recipientType,
         recipient_filter_value: filterValue,
-        test_number: testNumber
+        test_number: testNumber,
+        media_url: mediaUrl,
+        media_type: mediaType,
+        csv_recipients: recipientType === 'csv' ? csvRecipientsList : null
       })
     });
 
@@ -913,6 +1149,8 @@ async function handleSendBroadcast() {
 
 
 // --- 4. WHATSAPP WEB-STYLE LIVE MESSAGING ---
+let lastChatsSignature = '';
+
 async function loadChats(forceRerender = false) {
   try {
     const res = await fetch('/api/chats');
@@ -920,7 +1158,11 @@ async function loadChats(forceRerender = false) {
     const data = await res.json();
     const chatsList = data.chats || [];
 
-    renderConversationsList(chatsList);
+    const currentSig = chatsList.map(c => `${c.phone}:${c.last_activity}:${c.unread_count}`).join('|');
+    if (forceRerender || currentSig !== lastChatsSignature) {
+      lastChatsSignature = currentSig;
+      renderConversationsList(chatsList);
+    }
 
     // If active phone is selected, reload that conversation
     if (activePhone) {
@@ -1058,8 +1300,21 @@ async function loadActiveChat(phone, scrollBottom = false) {
           const isOut = m.direction === 'outgoing';
           const bubble = document.createElement('div');
           bubble.className = `wa-bubble ${isOut ? 'outgoing' : 'incoming'}`;
+          let mediaHtml = '';
+          if (m.media_url) {
+            const mType = (m.media_type || 'image').toLowerCase();
+            if (mType === 'image') {
+              mediaHtml = `<img src="${m.media_url}" style="width: 100%; max-height: 220px; object-fit: cover; border-radius: 6px; margin-bottom: 6px; display: block; cursor: pointer;" onclick="window.open('${m.media_url}', '_blank')">`;
+            } else if (mType === 'video') {
+              mediaHtml = `<video src="${m.media_url}" controls style="width: 100%; max-height: 220px; border-radius: 6px; margin-bottom: 6px; display: block;"></video>`;
+            } else {
+              mediaHtml = `<a href="${m.media_url}" target="_blank" style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.06); padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; text-decoration: none; color: inherit; font-size: 12px; font-weight: 600;"><span style="color: #dc2626;">📄</span><span>View Document (PDF)</span></a>`;
+            }
+          }
+
           bubble.innerHTML = `
-            <div>${m.text.replace(/\n/g, '<br>')}</div>
+            ${mediaHtml}
+            <div>${(m.text || '').replace(/\n/g, '<br>')}</div>
             <div class="wa-msg-meta">
               <span>${formatLocalTime(m.time, m.timestamp)}</span>
               ${isOut ? '<span class="wa-ticks">✓✓</span>' : ''}
@@ -1099,6 +1354,66 @@ function setupWhatsAppWebMessaging() {
   // Send message on click
   const sendBtn = document.getElementById('waChatSendBtn');
   const input = document.getElementById('waChatMessageInput');
+
+  // Attach media modal logic
+  const attachBtn = document.getElementById('waChatAttachBtn');
+  const mediaModal = document.getElementById('chatMediaModal');
+  const btnCloseMediaModal = document.getElementById('btnCloseChatMediaModal');
+  const btnCancelMedia = document.getElementById('btnCancelChatMedia');
+  const btnSendMedia = document.getElementById('btnSendChatMedia');
+  const mediaTypeSelect = document.getElementById('chatMediaTypeSelect');
+  const mediaUrlInput = document.getElementById('chatMediaUrlInput');
+  const mediaCaptionInput = document.getElementById('chatMediaCaptionInput');
+
+  if (attachBtn && mediaModal) {
+    attachBtn.addEventListener('click', () => {
+      if (!activePhone) {
+        alert('Please select an active conversation first.');
+        return;
+      }
+      mediaModal.style.display = 'flex';
+      if (mediaUrlInput) mediaUrlInput.value = '';
+      if (mediaCaptionInput) mediaCaptionInput.value = '';
+    });
+  }
+
+  if (btnCloseMediaModal && mediaModal) btnCloseMediaModal.onclick = () => mediaModal.style.display = 'none';
+  if (btnCancelMedia && mediaModal) btnCancelMedia.onclick = () => mediaModal.style.display = 'none';
+
+  if (btnSendMedia && mediaModal) {
+    btnSendMedia.onclick = async () => {
+      const url = mediaUrlInput ? mediaUrlInput.value.trim() : '';
+      const type = mediaTypeSelect ? mediaTypeSelect.value : 'image';
+      const caption = mediaCaptionInput ? mediaCaptionInput.value.trim() : '';
+
+      if (!url) {
+        alert('Please enter a public media URL.');
+        return;
+      }
+
+      btnSendMedia.disabled = true;
+      btnSendMedia.textContent = 'Sending...';
+
+      try {
+        const res = await fetch(`/api/chats/${encodeURIComponent(activePhone)}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: caption, media_url: url, media_type: type })
+        });
+        if (res.ok) {
+          mediaModal.style.display = 'none';
+          loadActiveChat(activePhone, true);
+          loadChats(false);
+        }
+      } catch (e) {
+        console.error('Error sending chat media:', e);
+      } finally {
+        btnSendMedia.disabled = false;
+        btnSendMedia.innerHTML = '<i data-lucide="send" style="width: 14px; height: 14px;"></i><span>Send Media</span>';
+        initIcons();
+      }
+    };
+  }
 
   async function sendMessage() {
     if (!input) return;
@@ -1190,6 +1505,41 @@ function setupTemplateModal() {
       .replace(/[^a-z0-9_]/g, '')
       .replace(/_+/g, '_')
       .replace(/^_+|_+$/g, '');
+  }
+
+  const headerTypeSelect = document.getElementById('tplHeaderTypeSelect');
+  const headerTextWrap = document.getElementById('tplHeaderTextWrap');
+  const headerMediaWrap = document.getElementById('tplHeaderMediaWrap');
+  const headerInput = document.getElementById('tplHeaderInput');
+  const headerCounter = document.getElementById('tplHeaderCharCounter');
+  const bodyCounter = document.getElementById('tplBodyCharCounter');
+
+  if (headerTypeSelect) {
+    headerTypeSelect.addEventListener('change', () => {
+      const val = headerTypeSelect.value;
+      if (val === 'TEXT') {
+        if (headerTextWrap) headerTextWrap.style.display = 'block';
+        if (headerMediaWrap) headerMediaWrap.style.display = 'none';
+      } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(val)) {
+        if (headerTextWrap) headerTextWrap.style.display = 'none';
+        if (headerMediaWrap) headerMediaWrap.style.display = 'block';
+      } else {
+        if (headerTextWrap) headerTextWrap.style.display = 'none';
+        if (headerMediaWrap) headerMediaWrap.style.display = 'none';
+      }
+    });
+  }
+
+  if (headerInput && headerCounter) {
+    headerInput.addEventListener('input', () => {
+      headerCounter.textContent = `${headerInput.value.length} / 60`;
+    });
+  }
+
+  if (bodyInput && bodyCounter) {
+    bodyInput.addEventListener('input', () => {
+      bodyCounter.textContent = `${bodyInput.value.length} / 1024`;
+    });
   }
 
   // Live Auto-formatting of Template Name
@@ -1401,7 +1751,9 @@ function setupTemplateModal() {
       const rawName = nameInput ? nameInput.value.trim() : '';
       const cat = document.getElementById('tplCategorySelect').value;
       const lang = document.getElementById('tplLangSelect').value;
-      const header = document.getElementById('tplHeaderInput').value.trim();
+      const hType = document.getElementById('tplHeaderTypeSelect') ? document.getElementById('tplHeaderTypeSelect').value : 'TEXT';
+      const header = document.getElementById('tplHeaderInput') ? document.getElementById('tplHeaderInput').value.trim() : '';
+      const hMediaUrl = document.getElementById('tplHeaderMediaInput') ? document.getElementById('tplHeaderMediaInput').value.trim() : null;
       const body = bodyInput ? bodyInput.value.trim() : '';
       const footerEl = document.getElementById('tplFooterInput');
       const footer = footerEl ? footerEl.value.trim() : null;
@@ -1455,7 +1807,7 @@ function setupTemplateModal() {
             name: cleanName,
             category: cat,
             language: lang,
-            header_text: header || null,
+            header_type: hType, header_text: header || null, header_media_sample_url: hMediaUrl,
             body_text: metaFormattedBody,
             footer_text: footer || null,
             example_variables: examples,

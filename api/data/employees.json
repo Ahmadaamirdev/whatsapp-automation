@@ -43,5 +43,14 @@
     "designation": "Staff",
     "location": "Muscat HQ",
     "status": "Active"
+  },
+  {
+    "id": "EMP-0006",
+    "name": "shoaib bhai",
+    "phone": "+96879783152",
+    "department": "Operations",
+    "designation": "Staff",
+    "location": "Muscat HQ",
+    "status": "Active"
   }
 ]

@@ -413,7 +413,9 @@ class TemplateCreateRequest(BaseModel):
     name: str
     category: str = "UTILITY"
     language: str = "en_US"
+    header_type: Optional[str] = "TEXT"  # TEXT, IMAGE, VIDEO, DOCUMENT, NONE
     header_text: Optional[str] = None
+    header_media_sample_url: Optional[str] = None
     body_text: str
     footer_text: Optional[str] = None
     example_variables: List[str] = []
@@ -425,7 +427,23 @@ def create_template(tpl: TemplateCreateRequest):
     """Submits a new template directly to Meta WhatsApp Cloud API for approval."""
     components = []
     
-    if tpl.header_text:
+    # Header Handling: Text or Media (Image, Video, Document)
+    h_type = (tpl.header_type or "TEXT").upper()
+    if h_type in ["IMAGE", "VIDEO", "DOCUMENT"]:
+        default_sample = (
+            "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800" if h_type == "IMAGE"
+            else "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" if h_type == "VIDEO"
+            else "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+        )
+        sample_media = (tpl.header_media_sample_url or "").strip() or default_sample
+        components.append({
+            "type": "HEADER",
+            "format": h_type,
+            "example": {
+                "header_handle": [sample_media]
+            }
+        })
+    elif tpl.header_text and h_type != "NONE":
         components.append({
             "type": "HEADER",
             "format": "TEXT",
@@ -697,7 +715,7 @@ def add_employee(req: EmployeeCreateRequest):
 
     # Format phone with leading +
     clean_digits = "".join([c for c in phone if c.isdigit()])
-    formatted_phone = f"+{clean_digits}" if not phone.startswith("+") else phone
+    formatted_phone = f"+{clean_digits}"
 
     employees = load_json("employees.json", [])
     new_id = f"EMP-{len(employees) + 1:04d}"
@@ -757,9 +775,12 @@ class BroadcastSendRequest(BaseModel):
     template_language: str = "en_US"
     body_text: str
     variables: List[str] = []
-    recipient_type: str = "all"  # all, department, location, employee, custom
+    recipient_type: str = "all"  # all, department, location, employee, custom, csv
     recipient_filter_value: Optional[str] = None
     test_number: Optional[str] = None  # Send real message to this phone number
+    media_url: Optional[str] = None
+    media_type: Optional[str] = None  # IMAGE, VIDEO, DOCUMENT
+    csv_recipients: Optional[List[Dict[str, Any]]] = None
 
 def personalize_for_employee(variables: list, emp: dict, body_template: str = ""):
     """Dynamically personalizes template variables and body text per recipient (n8n-style)."""
@@ -831,6 +852,8 @@ def send_broadcast(req: BroadcastSendRequest):
         recipients = matched if matched else [e for e in employees if val in e.get("name", "")]
         if not recipients:
             recipients = employees[:1]
+    elif req.recipient_type == "csv" and req.csv_recipients:
+        recipients = req.csv_recipients
     else:
         recipients = employees
 
@@ -867,11 +890,24 @@ def send_broadcast(req: BroadcastSendRequest):
 
         # Dynamically personalize all variables and body text per recipient (n8n-style)
         emp_vars, emp_chat_text = personalize_for_employee(req.variables, emp, raw_template_body)
+        components = []
+
+        # Add media header component if template has media or media_url is supplied
+        if req.media_url and req.media_type:
+            m_type = req.media_type.lower()
+            components.append({
+                "type": "header",
+                "parameters": [
+                    {
+                        "type": m_type,
+                        m_type: {"link": req.media_url}
+                    }
+                ]
+            })
+
         if emp_vars:
             parameters = [{"type": "text", "text": str(v)} for v in emp_vars]
-            components = [{"type": "body", "parameters": parameters}]
-        else:
-            components = []
+            components.append({"type": "body", "parameters": parameters})
 
         if clean_phone == sender_clean:
             msg_id = f"self_{int(time.time()*1000)}"
@@ -1175,7 +1211,9 @@ def get_chat_history(phone: str):
     return chat
 
 class SendChatMessageRequest(BaseModel):
-    text: str
+    text: Optional[str] = ""
+    media_url: Optional[str] = None
+    media_type: Optional[str] = None  # image, video, document
 
 @app.post("/api/chats/{phone}/send")
 @app.post("/chats/{phone}/send")
@@ -1194,12 +1232,24 @@ def send_chat_message(phone: str, req: SendChatMessageRequest):
                 "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
                 "Content-Type": "application/json"
             }
-            payload = {
-                "messaging_product": "whatsapp",
-                "to": clean_phone,
-                "type": "text",
-                "text": {"body": req.text}
-            }
+            if req.media_url and req.media_type:
+                m_type = req.media_type.lower()
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": clean_phone,
+                    "type": m_type,
+                    m_type: {
+                        "link": req.media_url,
+                        **({"caption": req.text} if req.text else {})
+                    }
+                }
+            else:
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": clean_phone,
+                    "type": "text",
+                    "text": {"body": req.text or " "}
+                }
             r = requests.post(url, headers=headers, json=payload, timeout=8)
             api_response = r.json()
         except Exception as e:
@@ -1229,11 +1279,14 @@ def send_chat_message(phone: str, req: SendChatMessageRequest):
         "id": meta_msg_id,
         "direction": "outgoing",
         "sender": "Al Haditha Energy",
-        "text": req.text,
+        "text": req.text or "",
         "time": now_time,
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "status": initial_status
     }
+    if req.media_url:
+        new_msg["media_url"] = req.media_url
+        new_msg["media_type"] = req.media_type or "image"
     if error_msg:
         new_msg["error"] = error_msg
 
@@ -1420,3 +1473,13 @@ def get_root():
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static_dir")
     app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
+
+@app.get("/api/broadcasts/{broadcast_id}/details")
+@app.get("/broadcasts/{broadcast_id}/details")
+def get_broadcast_details(broadcast_id: str):
+    """Returns recipient-by-recipient delivery logs and failure reasons for a broadcast."""
+    broadcasts = load_json("broadcasts.json", [])
+    matched = next((b for b in broadcasts if b.get("id") == broadcast_id), None)
+    if not matched:
+        raise HTTPException(status_code=404, detail="Broadcast log not found")
+    return matched

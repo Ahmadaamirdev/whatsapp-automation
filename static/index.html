@@ -233,6 +233,11 @@
                     <i data-lucide="user" style="width: 14px; height: 14px;"></i>
                     <span>Select Employee</span>
                   </label>
+                  <label class="recipient-pill" id="pillCsv">
+                    <input type="radio" name="recipientFilter" value="csv" style="display: none;">
+                    <i data-lucide="file-spreadsheet" style="width: 14px; height: 14px;"></i>
+                    <span>Upload CSV / Excel</span>
+                  </label>
                 </div>
 
                 <!-- SUB-SELECTOR FOR DEPARTMENT -->
@@ -262,6 +267,44 @@
                     </button>
                   </div>
                 </div>
+
+                <!-- SUB-SELECTOR FOR CSV / EXCEL UPLOAD -->
+                <div id="csvSelectorWrap" style="display: none; margin-top: 10px; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 14px; text-align: center;">
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                    <div style="width: 40px; height: 40px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center;">
+                      <i data-lucide="upload-cloud" style="width: 20px; height: 20px;"></i>
+                    </div>
+                    <div>
+                      <span style="font-size: 13px; font-weight: 700; color: #1e293b;">Upload Recipient Contacts (.CSV)</span>
+                      <p style="font-size: 11px; color: #64748b; margin: 2px 0 0 0;">Upload your spreadsheet with columns: <b>Name, Phone, Department, Role</b></p>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px; flex-wrap: wrap; justify-content: center;">
+                      <label for="csvFileInput" class="btn-action-view" style="cursor: pointer; font-size: 11px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px; background: #ffffff; color: #00a651; border-color: #a7f3d0; font-weight: 700;">
+                        <i data-lucide="file-up" style="width: 13px; height: 13px;"></i>
+                        <span>Choose CSV File</span>
+                      </label>
+                      <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display: none;">
+                      <button type="button" id="btnDownloadSampleCsv" class="btn-action-view" style="font-size: 11px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px; background: #ffffff; color: #475569;">
+                        <i data-lucide="download" style="width: 13px; height: 13px;"></i>
+                        <span>Download Sample Template</span>
+                      </button>
+                    </div>
+                    <div id="csvStatusBox" style="display: none; font-size: 12px; font-weight: 600; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 6px 12px; border-radius: 6px; margin-top: 4px;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- MEDIA ATTACHMENT SECTION (For Media Templates: Image / Video / Document) -->
+              <div id="broadcastMediaAttachmentWrap" style="display: none; margin-top: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="image" style="width: 14px; height: 14px; color: #00a651;"></i>
+                    <span id="broadcastMediaLabel">Attached Announcement Media</span>
+                  </label>
+                  <span id="broadcastMediaBadge" style="font-size: 10px; font-weight: 700; background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 10px;">HEADER MEDIA</span>
+                </div>
+                <input type="url" id="broadcastMediaUrlInput" class="form-input" placeholder="e.g. https://.../announcement-banner.jpg">
+                <small style="font-size: 10px; color: #64748b; margin-top: 3px; display: block;">Delivered directly as the official header media on employees' WhatsApp.</small>
               </div>
 
               <!-- DYNAMIC VARIABLES SECTION (CLEAR LABELED INPUTS) -->
@@ -329,6 +372,16 @@
 
                 <!-- WHATSAPP MESSAGE BUBBLE -->
                 <div class="wa-preview-bubble">
+                  <!-- Header Media Preview -->
+                  <div id="previewMediaWrap" style="display: none; margin: -8px -8px 8px -8px; border-radius: 8px 8px 0 0; overflow: hidden; background: #000000; text-align: center;">
+                    <img id="previewMediaImg" src="" style="width: 100%; max-height: 180px; object-fit: cover; display: none;">
+                    <video id="previewMediaVideo" src="" style="width: 100%; max-height: 180px; object-fit: cover; display: none;" controls></video>
+                    <div id="previewMediaDoc" style="display: none; padding: 12px; background: #f1f5f9; align-items: center; justify-content: center; gap: 8px;">
+                      <i data-lucide="file-text" style="width: 22px; height: 22px; color: #dc2626;"></i>
+                      <span id="previewMediaDocName" style="font-size: 12px; font-weight: 600; color: #1e293b;">document.pdf</span>
+                    </div>
+                  </div>
+
                   <!-- Header Text -->
                   <div class="wa-bubble-header" id="previewHeader">Al-Haditha Energy Notice</div>
 
@@ -613,7 +666,10 @@
             </div>
 
             <!-- BOTTOM INPUT BAR -->
-            <div class="wa-input-bar">
+            <div class="wa-input-bar" style="position: relative;">
+              <button type="button" class="btn-chat-attach" id="waChatAttachBtn" title="Attach Image or Document" style="background: transparent; border: none; cursor: pointer; color: #64748b; padding: 8px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">
+                <i data-lucide="paperclip" style="width: 18px; height: 18px;"></i>
+              </button>
               <input type="text" id="waChatMessageInput" class="wa-message-input" placeholder="Type a message...">
               <button type="button" class="wa-send-btn" id="waChatSendBtn" title="Send message">
                 <i data-lucide="send" style="width: 16px; height: 16px;"></i>
@@ -694,14 +750,37 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Header (Optional)</label>
-          <input type="text" id="tplHeaderInput" class="form-input" placeholder="e.g. Al-Haditha Energy Notice">
+        <div style="display: grid; grid-template-columns: 1fr 1.6fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Header Format</label>
+            <select id="tplHeaderTypeSelect" class="form-select">
+              <option value="TEXT">Text (Standard)</option>
+              <option value="IMAGE">📷 Image (Photo)</option>
+              <option value="VIDEO">🎥 Video (MP4)</option>
+              <option value="DOCUMENT">📄 Document (PDF)</option>
+              <option value="NONE">None (No Header)</option>
+            </select>
+          </div>
+          <div class="form-group" id="tplHeaderTextWrap">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label class="form-label" style="margin-bottom: 0;">Header Text (Optional)</label>
+              <span id="tplHeaderCharCounter" style="font-size: 10px; color: #64748b; font-family: monospace;">0 / 60</span>
+            </div>
+            <input type="text" id="tplHeaderInput" class="form-input" maxlength="60" placeholder="e.g. Al-Haditha Energy Notice">
+          </div>
+          <div class="form-group" id="tplHeaderMediaWrap" style="display: none;">
+            <label class="form-label">Sample Media URL (For Meta Approval)</label>
+            <input type="url" id="tplHeaderMediaInput" class="form-input" placeholder="e.g. https://.../sample.jpg">
+            <small style="font-size: 10px; color: #059669;">✓ Auto-supplied default sample for instant Meta approval.</small>
+          </div>
         </div>
 
         <div class="form-group">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <label class="form-label" style="margin-bottom: 0;">Body Text</label>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label class="form-label" style="margin-bottom: 0;">Body Text</label>
+              <span id="tplBodyCharCounter" style="font-size: 10px; color: #64748b; font-family: monospace;">0 / 1024</span>
+            </div>
             <button type="button" class="btn-action-view" id="btnAddVariableBtn" style="padding: 4px 10px; font-size: 11px; font-weight: 700; color: #008c44; background: #ecfdf5; border-color: #a7f3d0; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
               <i data-lucide="plus" style="width: 12px; height: 12px;"></i>
               <span>Add Variable</span>
@@ -819,5 +898,108 @@
   </div>
 
   <script src="/js/app.js?v=2.7.0"></script>
+
+  <!-- MODAL: BROADCAST DISPATCH DETAILS & LOGS -->
+  <div id="broadcastDetailModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 820px; width: 95%;">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalDetailTitle" style="font-size: 16px; margin: 0; color: #1e293b;">Broadcast Dispatch Report</h3>
+          <p id="modalDetailSubtitle" style="font-size: 12px; color: #64748b; margin: 2px 0 0 0;">Recipient-by-recipient delivery logs and failure reasons</p>
+        </div>
+        <button class="btn-close-modal" id="btnCloseDetailModal">&times;</button>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #64748b; font-weight: 600;">Targeted</div>
+          <div id="modalDetailTotal" style="font-size: 20px; font-weight: 800; color: #1e293b; margin-top: 2px;">0</div>
+        </div>
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #059669; font-weight: 600;">Delivered</div>
+          <div id="modalDetailDelivered" style="font-size: 20px; font-weight: 800; color: #059669; margin-top: 2px;">0</div>
+        </div>
+        <div style="background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #0369a1; font-weight: 600;">Delivery Rate</div>
+          <div id="modalDetailRate" style="font-size: 20px; font-weight: 800; color: #0369a1; margin-top: 2px;">100%</div>
+        </div>
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #dc2626; font-weight: 600;">Failed</div>
+          <div id="modalDetailFailed" style="font-size: 20px; font-weight: 800; color: #dc2626; margin-top: 2px;">0</div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+        <input type="text" id="modalDetailSearch" class="form-input" placeholder="Search recipient by name or phone..." style="max-width: 280px; font-size: 12px; padding: 6px 10px;">
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn-action-view modal-filter-btn active" data-filter="all" style="font-size: 11px; padding: 4px 10px; font-weight: 700;">All</button>
+          <button type="button" class="btn-action-view modal-filter-btn" data-filter="failed" style="font-size: 11px; padding: 4px 10px; color: #dc2626; border-color: #fecaca;">Failed Only</button>
+          <button type="button" class="btn-action-view modal-filter-btn" data-filter="delivered" style="font-size: 11px; padding: 4px 10px; color: #059669; border-color: #a7f3d0;">Delivered</button>
+        </div>
+      </div>
+
+      <div style="max-height: 320px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <table class="data-table" style="width: 100%; margin: 0; font-size: 12px;">
+          <thead style="position: sticky; top: 0; background: #f8fafc; border-bottom: 1px solid #cbd5e1;">
+            <tr>
+              <th style="padding: 8px 12px; text-align: left;">Recipient</th>
+              <th style="padding: 8px 12px; text-align: left;">Phone</th>
+              <th style="padding: 8px 12px; text-align: left;">Department</th>
+              <th style="padding: 8px 12px; text-align: left;">Status</th>
+              <th style="padding: 8px 12px; text-align: left;">Time</th>
+              <th style="padding: 8px 12px; text-align: left;">Delivery Log / Failure Reason</th>
+            </tr>
+          </thead>
+          <tbody id="modalDetailTableBody">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+      
+      <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+        <button type="button" class="btn-action-view" id="btnCloseDetailModal2" style="padding: 8px 16px; font-size: 12px;">Close Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ATTACH CHAT MEDIA (LIVE CHAT) -->
+  <div id="chatMediaModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 style="font-size: 15px; margin: 0; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="paperclip" style="width: 16px; height: 16px; color: #00a651;"></i>
+          <span>Attach Media to WhatsApp Chat</span>
+        </h3>
+        <button class="btn-close-modal" id="btnCloseChatMediaModal">&times;</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
+        <div class="form-group">
+          <label class="form-label">Media Type</label>
+          <select id="chatMediaTypeSelect" class="form-select">
+            <option value="image">📷 Image (JPEG / PNG)</option>
+            <option value="video">🎥 Video (MP4)</option>
+            <option value="document">📄 Document (PDF)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Public Media URL</label>
+          <input type="url" id="chatMediaUrlInput" class="form-input" placeholder="e.g. https://.../image.jpg">
+          <small style="font-size: 11px; color: #64748b; margin-top: 3px; display: block;">Enter public image or document link to send.</small>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Caption (Optional)</label>
+          <input type="text" id="chatMediaCaptionInput" class="form-input" placeholder="Enter optional caption...">
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+          <button type="button" class="btn-action-view" id="btnCancelChatMedia" style="padding: 7px 14px;">Cancel</button>
+          <button type="button" class="btn-send" id="btnSendChatMedia" style="padding: 7px 16px;">
+            <i data-lucide="send" style="width: 14px; height: 14px;"></i>
+            <span>Send Media</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

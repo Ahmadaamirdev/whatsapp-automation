@@ -4,7 +4,7 @@
     "name": "test user name",
     "role": "Employee • WhatsApp Contact",
     "unread_count": 0,
-    "last_activity": "05:37 PM",
+    "last_activity": "10:17 PM",
     "messages": [
       {
         "id": "ABGGFlA5Fpa",
@@ -31,6 +31,24 @@
         "time": "05:37 PM",
         "timestamp": "2026-11-22T12:37:52.313020Z",
         "status": "sent"
+      },
+      {
+        "id": "wamid.HBgLMTYzMTU1NTExODEVAgARGBIwRkE4RjVGQzBBQjJBN0FDQjIA",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Test User, please be advised of the following announcement regarding holiday update :\n\nfhfvjfjhgmjhjmmjnhf\n\nThank you for your cooperation.",
+        "time": "10:12 PM",
+        "timestamp": "2026-11-26T17:12:15.903969Z",
+        "status": "sent"
+      },
+      {
+        "id": "wamid.HBgLMTYzMTU1NTExODEVAgARGBI5OUNEMDNGMzM2NkM1MDkxRUIA",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Test User, please be advised of the following announcement regarding meeting update :\n\nthe meweting will be held tommorow \n\nThank you for your cooperation.",
+        "time": "10:17 PM",
+        "timestamp": "2026-11-26T17:17:13.996751Z",
+        "status": "failed"
       }
     ],
     "phone": "+16315551181"
@@ -40,7 +58,7 @@
     "name": "Ali Musa",
     "role": "Employee • WhatsApp Contact",
     "unread_count": 0,
-    "last_activity": "05:43 PM",
+    "last_activity": "10:17 PM",
     "messages": [
       {
         "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAEhggQUM5NDAwQTIyOTg1NDE0MkM5RUUzOUI2NzNFNzZGNzIA",
@@ -162,7 +180,25 @@
         "text": "📢 [Staff Official Notice]\nDear Ali Musa, please be advised of the following announcement regarding Office Timings Update:\n\nThursday working hours will conclude at 2:00 PM.\n\nThank you for your cooperation.",
         "time": "05:43 PM",
         "timestamp": "2026-11-22T12:43:37.206576Z",
-        "status": "sent"
+        "status": "read"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSNDMzQkZGOUVGOTRCNTcyQkYxAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ali Musa, please be advised of the following announcement regarding holiday update :\n\nfhfvjfjhgmjhjmmjnhf\n\nThank you for your cooperation.",
+        "time": "10:12 PM",
+        "timestamp": "2026-11-26T17:12:14.616841Z",
+        "status": "read"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTA0MjIwMjE3FQIAERgSMDlBMEE1NEY0OEM3RTI0QzQzAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Ali Musa, please be advised of the following announcement regarding meeting update :\n\nthe meweting will be held tommorow \n\nThank you for your cooperation.",
+        "time": "10:17 PM",
+        "timestamp": "2026-11-26T17:17:13.154423Z",
+        "status": "read"
       }
     ],
     "phone": "+923104220217"
@@ -172,7 +208,7 @@
     "name": "Staff (+923087786638)",
     "role": "Employee",
     "unread_count": 0,
-    "last_activity": "05:37 PM",
+    "last_activity": "10:17 PM",
     "messages": [
       {
         "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSMENCRkFCNUIwODk1RkIxM0NDAA==",
@@ -208,6 +244,24 @@
         "time": "05:37 PM",
         "timestamp": "2026-11-22T12:37:52.102835Z",
         "status": "delivered"
+      },
+      {
+        "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSNkVFRjA4NTk1Q0M0RDdGNTdGAA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Staff (+923087786638), please be advised of the following announcement regarding holiday update :\n\nfhfvjfjhgmjhjmmjnhf\n\nThank you for your cooperation.",
+        "time": "10:12 PM",
+        "timestamp": "2026-11-26T17:12:15.646346Z",
+        "status": "delivered"
+      },
+      {
+        "id": "wamid.HBgMOTIzMDg3Nzg2NjM4FQIAERgSMTgyMzVBNzNFQkM4ODczMjY4AA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Staff (+923087786638), please be advised of the following announcement regarding meeting update :\n\nthe meweting will be held tommorow \n\nThank you for your cooperation.",
+        "time": "10:17 PM",
+        "timestamp": "2026-11-26T17:17:13.693069Z",
+        "status": "delivered"
       }
     ],
     "phone": "+923087786638"
@@ -217,7 +271,7 @@
     "name": "Employee",
     "role": "Employee",
     "unread_count": 0,
-    "last_activity": "05:37 PM",
+    "last_activity": "10:17 PM",
     "messages": [
       {
         "id": "wamid.HBgMOTIzMTI0NDk0NTQwFQIAERgSNTQ3QjRBNDFBRkU4QUI0NkJGAA==",
@@ -245,8 +299,53 @@
         "time": "05:37 PM",
         "timestamp": "2026-11-22T12:37:51.746994Z",
         "status": "sent"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTI0NDk0NTQwFQIAERgSRTg2QUVCNTcwMDkwNTUzMUI1AA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Emaad, please be advised of the following announcement regarding holiday update :\n\nfhfvjfjhgmjhjmmjnhf\n\nThank you for your cooperation.",
+        "time": "10:12 PM",
+        "timestamp": "2026-11-26T17:12:15.387095Z",
+        "status": "sent"
+      },
+      {
+        "id": "wamid.HBgMOTIzMTI0NDk0NTQwFQIAERgSNEVCMTg2Q0I5RUY3RjMzRjE4AA==",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "📢 [Staff Official Notice]\nDear Emaad, please be advised of the following announcement regarding meeting update :\n\nthe meweting will be held tommorow \n\nThank you for your cooperation.",
+        "time": "10:17 PM",
+        "timestamp": "2026-11-26T17:17:13.448140Z",
+        "status": "delivered"
       }
     ],
     "phone": "+923124494540"
+  },
+  "+96879783152": {
+    "employee_id": "EMP-1001",
+    "name": "shoaib bhai",
+    "role": "Employee",
+    "unread_count": 0,
+    "last_activity": "10:24 PM",
+    "messages": [
+      {
+        "id": "wamid.HBgLOTY4Nzk3ODMxNTIVAgARGBJDNjY2NzU3QTE3Qzk4NjQxNjYA",
+        "direction": "outgoing",
+        "sender": "Al Haditha Energy",
+        "text": "hi",
+        "time": "10:14 PM",
+        "timestamp": "2026-11-26T17:14:12.538276Z",
+        "status": "read"
+      },
+      {
+        "id": "wamid.HBgLOTY4Nzk3ODMxNTIVAgASGCBBQzY4NkE5NEYzM0I5MDBDQ0M5NzhFMTYyNDBBMzYyMwA=",
+        "direction": "incoming",
+        "sender": "shoaib bhai",
+        "text": "Hi",
+        "time": "10:24 PM",
+        "timestamp": "2026-11-26T17:24:09.156120Z"
+      }
+    ],
+    "phone": "+96879783152"
   }
 }
