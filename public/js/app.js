@@ -945,6 +945,47 @@ function updateTemplateVariablesAndPreview() {
   renderLivePreview();
 }
 
+
+  // Local file upload for Broadcast Studio
+  const bcFileInput = document.getElementById('broadcastLocalFileInput');
+  const bcFileStatus = document.getElementById('broadcastFileLoadedStatus');
+  const bcUrlInput = document.getElementById('broadcastMediaUrlInput');
+
+  if (bcFileInput) {
+    bcFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (bcFileStatus) {
+        bcFileStatus.style.display = 'block';
+        bcFileStatus.textContent = `Uploading ${file.name} from computer...`;
+      }
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (data.success) {
+          if (bcUrlInput) bcUrlInput.value = data.url;
+          if (bcFileStatus) {
+            bcFileStatus.textContent = `✓ ${file.name} ready for broadcast!`;
+            bcFileStatus.style.color = '#059669';
+          }
+          renderLivePreview();
+        } else {
+          if (bcFileStatus) {
+            bcFileStatus.textContent = `Upload failed: ${data.error || 'Server error'}`;
+            bcFileStatus.style.color = '#dc2626';
+          }
+        }
+      } catch (err) {
+        console.error('Error uploading broadcast file:', err);
+      }
+    });
+  }
+
 function renderLivePreview() {
   const select = document.getElementById('broadcastTemplateSelect');
   if (!select) return;
@@ -1355,15 +1396,63 @@ function setupWhatsAppWebMessaging() {
   const sendBtn = document.getElementById('waChatSendBtn');
   const input = document.getElementById('waChatMessageInput');
 
-  // Attach media modal logic
+  // Attach media modal logic (with direct local computer file upload)
   const attachBtn = document.getElementById('waChatAttachBtn');
   const mediaModal = document.getElementById('chatMediaModal');
   const btnCloseMediaModal = document.getElementById('btnCloseChatMediaModal');
   const btnCancelMedia = document.getElementById('btnCancelChatMedia');
   const btnSendMedia = document.getElementById('btnSendChatMedia');
-  const mediaTypeSelect = document.getElementById('chatMediaTypeSelect');
   const mediaUrlInput = document.getElementById('chatMediaUrlInput');
   const mediaCaptionInput = document.getElementById('chatMediaCaptionInput');
+  const dropzone = document.getElementById('chatUploadDropzone');
+  const fileInput = document.getElementById('chatLocalFileInput');
+  const filePreview = document.getElementById('chatSelectedFilePreview');
+  const fileNameEl = document.getElementById('chatFileName');
+  const fileSizeEl = document.getElementById('chatFileSize');
+  const fileIconEl = document.getElementById('chatFileIcon');
+  const btnRemoveFile = document.getElementById('btnRemoveChatFile');
+  const toggleUrl = document.getElementById('toggleChatUrlField');
+  const urlWrap = document.getElementById('chatUrlWrap');
+
+  let selectedChatFile = null;
+
+  if (dropzone && fileInput) {
+    dropzone.onclick = () => fileInput.click();
+  }
+
+  if (fileInput) {
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      selectedChatFile = file;
+
+      let icon = '📄';
+      if (file.type.startsWith('image/')) icon = '📷';
+      else if (file.type.startsWith('video/')) icon = '🎥';
+
+      if (fileIconEl) fileIconEl.textContent = icon;
+      if (fileNameEl) fileNameEl.textContent = file.name;
+      if (fileSizeEl) fileSizeEl.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+      if (filePreview) filePreview.style.display = 'flex';
+      if (dropzone) dropzone.style.display = 'none';
+    };
+  }
+
+  if (btnRemoveFile) {
+    btnRemoveFile.onclick = (e) => {
+      e.stopPropagation();
+      selectedChatFile = null;
+      if (fileInput) fileInput.value = '';
+      if (filePreview) filePreview.style.display = 'none';
+      if (dropzone) dropzone.style.display = 'block';
+    };
+  }
+
+  if (toggleUrl && urlWrap) {
+    toggleUrl.onclick = () => {
+      urlWrap.style.display = urlWrap.style.display === 'none' ? 'block' : 'none';
+    };
+  }
 
   if (attachBtn && mediaModal) {
     attachBtn.addEventListener('click', () => {
@@ -1372,8 +1461,13 @@ function setupWhatsAppWebMessaging() {
         return;
       }
       mediaModal.style.display = 'flex';
+      selectedChatFile = null;
+      if (fileInput) fileInput.value = '';
+      if (filePreview) filePreview.style.display = 'none';
+      if (dropzone) dropzone.style.display = 'block';
       if (mediaUrlInput) mediaUrlInput.value = '';
       if (mediaCaptionInput) mediaCaptionInput.value = '';
+      if (urlWrap) urlWrap.style.display = 'none';
     });
   }
 
@@ -1382,34 +1476,70 @@ function setupWhatsAppWebMessaging() {
 
   if (btnSendMedia && mediaModal) {
     btnSendMedia.onclick = async () => {
-      const url = mediaUrlInput ? mediaUrlInput.value.trim() : '';
-      const type = mediaTypeSelect ? mediaTypeSelect.value : 'image';
+      let url = mediaUrlInput ? mediaUrlInput.value.trim() : '';
+      let mediaId = null;
+      let detectedType = 'image';
       const caption = mediaCaptionInput ? mediaCaptionInput.value.trim() : '';
 
-      if (!url) {
-        alert('Please enter a public media URL.');
+      if (!selectedChatFile && !url) {
+        alert('Please choose a file from your computer or enter a media link.');
         return;
       }
 
       btnSendMedia.disabled = true;
-      btnSendMedia.textContent = 'Sending...';
+      btnSendMedia.textContent = 'Uploading & Sending...';
 
       try {
+        if (selectedChatFile) {
+          // Detect type
+          if (selectedChatFile.type.startsWith('video/')) detectedType = 'video';
+          else if (selectedChatFile.type === 'application/pdf') detectedType = 'document';
+          else detectedType = 'image';
+
+          // Upload to /api/upload
+          const formData = new FormData();
+          formData.append('file', selectedChatFile);
+          const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+          const uploadData = await uploadRes.json();
+          if (!uploadData.success) {
+            alert('File upload failed: ' + (uploadData.error || 'Server error'));
+            btnSendMedia.disabled = false;
+            btnSendMedia.textContent = 'Send to WhatsApp';
+            return;
+          }
+          url = uploadData.url;
+          mediaId = uploadData.media_id;
+        } else if (url) {
+          if (url.match(/\.(mp4|mov|avi)($|\?)/i)) detectedType = 'video';
+          else if (url.match(/\.(pdf|docx|xlsx)($|\?)/i)) detectedType = 'document';
+          else detectedType = 'image';
+        }
+
         const res = await fetch(`/api/chats/${encodeURIComponent(activePhone)}/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: caption, media_url: url, media_type: type })
+          body: JSON.stringify({
+            text: caption,
+            media_url: url,
+            media_id: mediaId,
+            media_type: detectedType
+          })
         });
+
         if (res.ok) {
           mediaModal.style.display = 'none';
           loadActiveChat(activePhone, true);
           loadChats(false);
+        } else {
+          const errData = await res.json();
+          alert('Error sending media: ' + (errData.detail || 'Meta API error'));
         }
       } catch (e) {
         console.error('Error sending chat media:', e);
+        alert('Error dispatching media: ' + e.message);
       } finally {
         btnSendMedia.disabled = false;
-        btnSendMedia.innerHTML = '<i data-lucide="send" style="width: 14px; height: 14px;"></i><span>Send Media</span>';
+        btnSendMedia.innerHTML = '<i data-lucide="send" style="width: 14px; height: 14px;"></i><span>Send to WhatsApp</span>';
         initIcons();
       }
     };

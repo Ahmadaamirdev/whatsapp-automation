@@ -1483,3 +1483,50 @@ def get_broadcast_details(broadcast_id: str):
     if not matched:
         raise HTTPException(status_code=404, detail="Broadcast log not found")
     return matched
+
+from fastapi import UploadFile, File
+import shutil
+
+UPLOAD_DIR = BASE_DIR / "public" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+@app.post("/api/upload")
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Uploads a local media file from computer and makes it available for Meta WhatsApp API."""
+    try:
+        file_bytes = await file.read()
+        safe_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', file.filename or "media_file")
+        filename = f"{int(time.time()*1000)}_{safe_name}"
+        file_path = UPLOAD_DIR / filename
+        
+        with open(file_path, "wb") as f:
+            f.write(file_bytes)
+
+        # Upload directly to Meta Graph API media endpoint if credentials exist
+        media_id = None
+        if WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID:
+            try:
+                url = f"https://graph.facebook.com/v22.0/{WHATSAPP_PHONE_NUMBER_ID}/media"
+                headers = {"Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}"}
+                files_payload = {
+                    "file": (file.filename, file_bytes, file.content_type or "application/octet-stream"),
+                    "type": (None, file.content_type or "application/octet-stream"),
+                    "messaging_product": (None, "whatsapp")
+                }
+                r = requests.post(url, headers=headers, files=files_payload, timeout=20)
+                if r.status_code in [200, 201]:
+                    media_id = r.json().get("id")
+            except Exception as e_meta:
+                print(f"[META MEDIA UPLOAD WARNING]: {e_meta}")
+
+        file_url = f"/uploads/{filename}"
+        return {
+            "success": True,
+            "filename": file.filename,
+            "url": file_url,
+            "media_id": media_id,
+            "content_type": file.content_type
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
