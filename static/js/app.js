@@ -973,19 +973,55 @@ function updateTemplateVariablesAndPreview() {
 }
 
 
-  // Local file upload for Broadcast Studio
+  // Local file upload & state for Broadcast Studio
+  let broadcastMediaId = null;
+  let broadcastLocalPreviewUrl = null;
+  let broadcastLocalFileName = null;
+  let isBroadcastMediaUploading = false;
+
   const bcFileInput = document.getElementById('broadcastLocalFileInput');
   const bcFileStatus = document.getElementById('broadcastFileLoadedStatus');
   const bcUrlInput = document.getElementById('broadcastMediaUrlInput');
+  const bcTplSelect = document.getElementById('broadcastTemplateSelect');
+
+  if (bcTplSelect) {
+    bcTplSelect.addEventListener('change', () => {
+      broadcastMediaId = null;
+      broadcastLocalPreviewUrl = null;
+      broadcastLocalFileName = null;
+      if (bcFileInput) bcFileInput.value = '';
+      if (bcUrlInput) bcUrlInput.value = '';
+      if (bcFileStatus) bcFileStatus.style.display = 'none';
+    });
+  }
+
+  if (bcUrlInput) {
+    bcUrlInput.addEventListener('input', () => {
+      broadcastLocalPreviewUrl = null;
+      broadcastMediaId = null;
+      renderLivePreview();
+    });
+  }
 
   if (bcFileInput) {
     bcFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
+      // Instant local preview in the right card
+      if (broadcastLocalPreviewUrl && broadcastLocalPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(broadcastLocalPreviewUrl);
+      }
+      broadcastLocalPreviewUrl = URL.createObjectURL(file);
+      broadcastLocalFileName = file.name;
+      broadcastMediaId = null;
+      isBroadcastMediaUploading = true;
+      renderLivePreview();
+
       if (bcFileStatus) {
         bcFileStatus.style.display = 'block';
-        bcFileStatus.textContent = `Uploading ${file.name} from computer...`;
+        bcFileStatus.style.color = '#0369a1';
+        bcFileStatus.textContent = `Uploading ${file.name} to Meta Cloud...`;
       }
 
       try {
@@ -994,13 +1030,20 @@ function updateTemplateVariablesAndPreview() {
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         const data = await res.json();
 
-        if (data.success) {
-          if (bcUrlInput) bcUrlInput.value = data.url;
+        if (data.success && data.media_id) {
+          broadcastMediaId = data.media_id;
+          if (bcUrlInput) bcUrlInput.value = data.url || '';
           if (bcFileStatus) {
-            bcFileStatus.textContent = `✓ ${file.name} ready for broadcast!`;
+            bcFileStatus.textContent = `✓ ${file.name} uploaded & ready!`;
             bcFileStatus.style.color = '#059669';
           }
           renderLivePreview();
+        } else if (data.success && !data.media_id) {
+          if (bcUrlInput) bcUrlInput.value = data.url || '';
+          if (bcFileStatus) {
+            bcFileStatus.textContent = `⚠ Meta upload did not return a Media ID. Please try another file format (JPG/PNG/MP4/PDF).`;
+            bcFileStatus.style.color = '#d97706';
+          }
         } else {
           if (bcFileStatus) {
             bcFileStatus.textContent = `Upload failed: ${data.error || 'Server error'}`;
@@ -1009,6 +1052,12 @@ function updateTemplateVariablesAndPreview() {
         }
       } catch (err) {
         console.error('Error uploading broadcast file:', err);
+        if (bcFileStatus) {
+          bcFileStatus.textContent = `Upload error: ${err.message}`;
+          bcFileStatus.style.color = '#dc2626';
+        }
+      } finally {
+        isBroadcastMediaUploading = false;
       }
     });
   }
@@ -1034,6 +1083,10 @@ function renderLivePreview() {
   const previewMediaImg = document.getElementById('previewMediaImg');
   const previewMediaVideo = document.getElementById('previewMediaVideo');
   const previewMediaDoc = document.getElementById('previewMediaDoc');
+  const previewMediaDocName = document.getElementById('previewMediaDocName');
+  const previewPlaceholder = document.getElementById('previewMediaPlaceholder');
+  const previewPlaceholderIcon = document.getElementById('previewMediaPlaceholderIcon');
+  const previewPlaceholderText = document.getElementById('previewMediaPlaceholderText');
   const mediaInput = document.getElementById('broadcastMediaUrlInput');
   const mediaWrap = document.getElementById('broadcastMediaAttachmentWrap');
 
@@ -1047,25 +1100,37 @@ function renderLivePreview() {
   if (previewMediaWrap) {
     if (isMediaTpl) {
       previewMediaWrap.style.display = 'block';
-      const mUrl = mediaInput && mediaInput.value.trim() ? mediaInput.value.trim() : (
-        headerFormat === 'IMAGE' ? 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800'
-        : headerFormat === 'VIDEO' ? 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
-        : 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'
-      );
-      if (headerFormat === 'IMAGE' && previewMediaImg) {
-        previewMediaImg.src = mUrl;
-        previewMediaImg.style.display = 'block';
-        if (previewMediaVideo) previewMediaVideo.style.display = 'none';
-        if (previewMediaDoc) previewMediaDoc.style.display = 'none';
-      } else if (headerFormat === 'VIDEO' && previewMediaVideo) {
-        previewMediaVideo.src = mUrl;
-        previewMediaVideo.style.display = 'block';
-        if (previewMediaImg) previewMediaImg.style.display = 'none';
-        if (previewMediaDoc) previewMediaDoc.style.display = 'none';
-      } else if (previewMediaDoc) {
+      const pastedUrl = (mediaInput && mediaInput.value.trim().startsWith('http')) ? mediaInput.value.trim() : null;
+      const customSrc = broadcastLocalPreviewUrl || pastedUrl;
+
+      if (previewMediaImg) previewMediaImg.style.display = 'none';
+      if (previewMediaVideo) previewMediaVideo.style.display = 'none';
+      if (previewMediaDoc) previewMediaDoc.style.display = 'none';
+      if (previewPlaceholder) previewPlaceholder.style.display = 'none';
+
+      if (headerFormat === 'IMAGE') {
+        if (customSrc && previewMediaImg) {
+          previewMediaImg.src = customSrc;
+          previewMediaImg.style.display = 'block';
+        } else if (previewPlaceholder) {
+          previewPlaceholder.style.display = 'flex';
+          if (previewPlaceholderIcon) previewPlaceholderIcon.textContent = '📷';
+          if (previewPlaceholderText) previewPlaceholderText.textContent = 'Choose a photo on the left to preview';
+        }
+      } else if (headerFormat === 'VIDEO') {
+        if (customSrc && previewMediaVideo) {
+          previewMediaVideo.src = customSrc;
+          previewMediaVideo.style.display = 'block';
+        } else if (previewPlaceholder) {
+          previewPlaceholder.style.display = 'flex';
+          if (previewPlaceholderIcon) previewPlaceholderIcon.textContent = '🎥';
+          if (previewPlaceholderText) previewPlaceholderText.textContent = 'Choose a video on the left to preview';
+        }
+      } else if (headerFormat === 'DOCUMENT' && previewMediaDoc) {
         previewMediaDoc.style.display = 'flex';
-        if (previewMediaImg) previewMediaImg.style.display = 'none';
-        if (previewMediaVideo) previewMediaVideo.style.display = 'none';
+        if (previewMediaDocName) {
+          previewMediaDocName.textContent = broadcastLocalFileName || (pastedUrl ? pastedUrl.split('/').pop() : 'Document Attachment (PDF)');
+        }
       }
     } else {
       previewMediaWrap.style.display = 'none';
@@ -1073,8 +1138,13 @@ function renderLivePreview() {
   }
 
   if (previewHeader) {
-    previewHeader.textContent = headerComp.text || (isMediaTpl ? '' : 'Al-Haditha Energy Notice');
-    previewHeader.style.display = (headerComp.text && !isMediaTpl) ? 'block' : 'none';
+    if (isMediaTpl || headerFormat === 'NONE') {
+      previewHeader.style.display = 'none';
+      previewHeader.textContent = '';
+    } else {
+      previewHeader.textContent = headerComp.text || '';
+      previewHeader.style.display = headerComp.text ? 'block' : 'none';
+    }
   }
 
   if (previewFooter) {
@@ -1165,6 +1235,16 @@ async function handleSendBroadcast() {
   const hComp = selectTplObj ? (selectTplObj.components || []).find(c => c.type === 'HEADER') : null;
   const mediaType = hComp ? hComp.format : null;
 
+  if (isBroadcastMediaUploading) {
+    alert('Media file is still uploading to Meta. Please wait a moment and try again.');
+    return;
+  }
+
+  if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes((mediaType || '').toUpperCase()) && !broadcastMediaId && !(mediaUrl && mediaUrl.startsWith('http'))) {
+    alert(`This template requires a ${mediaType} attachment. Please upload a file from your computer or paste a valid public link before sending.`);
+    return;
+  }
+
   const varInputs = document.querySelectorAll('.var-field');
   const variables = Array.from(varInputs).map(inp => inp.value);
 
@@ -1189,6 +1269,7 @@ async function handleSendBroadcast() {
         recipient_filter_value: filterValue,
         test_number: testNumber,
         media_url: mediaUrl,
+        media_id: broadcastMediaId,
         media_type: mediaType,
         csv_recipients: recipientType === 'csv' ? csvRecipientsList : null
       })
@@ -1196,9 +1277,21 @@ async function handleSendBroadcast() {
 
     const data = await res.json();
     if (res.ok) {
-      const confirmed = confirm(`Broadcast Dispatched Successfully!\n\nTarget: ${targetDisplay}\nTemplate: ${selectedTemplate}\nStatus: Delivered via Meta Cloud API.\n\nWould you like to open live chat with this recipient now?`);
-      if (confirmed && testNumber) {
-        openChatWithEmployee(testNumber, targetDisplay.split(' (')[0]);
+      const sentCount = data.sent_count || 0;
+      const failedCount = data.failed_count || 0;
+      const results = (data.broadcast && data.broadcast.recipient_results) ? data.broadcast.recipient_results : [];
+      const firstFail = results.find(r => r.status === 'failed');
+      const failReason = firstFail && firstFail.error ? firstFail.error : 'Check Broadcast Delivery Logs for details.';
+
+      if (sentCount === 0 && failedCount > 0) {
+        alert(`Broadcast Failed to Deliver! (0 Sent, ${failedCount} Failed)\n\nReason: ${failReason}\n\nYou can inspect exact per-recipient details in the Broadcast Delivery Logs below.`);
+      } else if (failedCount > 0) {
+        alert(`Broadcast Partially Dispatched: ${sentCount} Sent, ${failedCount} Failed.\n\nFailure Reason: ${failReason}`);
+      } else {
+        const confirmed = confirm(`Broadcast Dispatched Successfully!\n\nTarget: ${targetDisplay}\nTemplate: ${selectedTemplate}\nSent: ${sentCount} | Status: Delivered via Meta Cloud API.${testNumber ? '\n\nWould you like to open live chat with this recipient now?' : ''}`);
+        if (confirmed && testNumber) {
+          openChatWithEmployee(testNumber, targetDisplay.split(' (')[0]);
+        }
       }
       loadBroadcasts();
       loadMetrics();
