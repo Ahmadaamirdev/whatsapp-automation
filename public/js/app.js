@@ -1746,6 +1746,78 @@ function setupWhatsAppWebMessaging() {
 
 
 // --- 5. META TEMPLATES TABLE & MODAL ---
+function openViewTemplateModal(tpl) {
+  const modal = document.getElementById('viewTemplateModal');
+  if (!modal || !tpl) return;
+
+  const titleEl = document.getElementById('viewTplModalTitle');
+  const badgesEl = document.getElementById('viewTplMetaBadges');
+  const rejBox = document.getElementById('viewTplRejectionBox');
+  const hdrBadge = document.getElementById('viewTplHeaderBadge');
+  const hdrText = document.getElementById('viewTplHeaderText');
+  const bodyEl = document.getElementById('viewTplBodyText');
+  const ftrEl = document.getElementById('viewTplFooterText');
+
+  if (titleEl) titleEl.textContent = tpl.name;
+
+  const st = (tpl.status || 'APPROVED').toUpperCase();
+  const stBg = st === 'APPROVED' ? '#dcfce7' : st === 'PENDING' ? '#fef3c7' : '#fee2e2';
+  const stCol = st === 'APPROVED' ? '#15803d' : st === 'PENDING' ? '#b45309' : '#b91c1c';
+
+  const headerComp = (tpl.components || []).find(c => c.type === 'HEADER') || {};
+  const bodyComp = (tpl.components || []).find(c => c.type === 'BODY') || {};
+  const footerComp = (tpl.components || []).find(c => c.type === 'FOOTER') || {};
+  const hFmt = (headerComp.format || (headerComp.text ? 'TEXT' : 'NONE')).toUpperCase();
+
+  if (badgesEl) {
+    badgesEl.innerHTML = `
+      <span style="font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 700; background: ${stBg}; color: ${stCol};">${st}</span>
+      <span style="font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 700; background: #e0f2fe; color: #0369a1;">${tpl.category || 'UTILITY'}</span>
+      <span style="font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; background: #f1f5f9; color: #334155;">Lang: ${tpl.language || 'en_US'}</span>
+      <span style="font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 600; background: #f1f5f9; color: #334155;">Header: ${hFmt}</span>
+    `;
+  }
+
+  if (rejBox) {
+    if (tpl.rejected_reason && tpl.rejected_reason !== 'NONE') {
+      rejBox.style.display = 'block';
+      rejBox.innerHTML = `<strong>Meta Rejection Reason:</strong> ${tpl.rejected_reason}`;
+    } else {
+      rejBox.style.display = 'none';
+    }
+  }
+
+  if (hdrBadge && hdrText) {
+    hdrBadge.style.display = 'none';
+    hdrText.style.display = 'none';
+    if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(hFmt)) {
+      const icon = hFmt === 'IMAGE' ? '📷' : hFmt === 'VIDEO' ? '🎥' : '📄';
+      hdrBadge.textContent = `${icon} ${hFmt} HEADER (Attached when sending broadcast)`;
+      hdrBadge.style.display = 'block';
+    } else if (headerComp.text) {
+      hdrText.textContent = headerComp.text;
+      hdrText.style.display = 'block';
+    }
+  }
+
+  if (bodyEl) {
+    const formatted = (bodyComp.text || '').replace(/\{\{(\d+)\}\}/g, '<span style="background: #fef08a; color: #854d0e; padding: 1px 5px; border-radius: 4px; font-weight: 700;">{{$1}}</span>');
+    bodyEl.innerHTML = formatted;
+  }
+
+  if (ftrEl) {
+    if (footerComp.text) {
+      ftrEl.textContent = footerComp.text;
+      ftrEl.style.display = 'block';
+    } else {
+      ftrEl.style.display = 'none';
+    }
+  }
+
+  modal.style.display = 'flex';
+  initIcons();
+}
+
 async function loadTemplatesTable() {
   try {
     const res = await fetch('/api/templates');
@@ -1759,17 +1831,35 @@ async function loadTemplatesTable() {
       const tr = document.createElement('tr');
       const bodyComp = (tpl.components || []).find(c => c.type === 'BODY') || {};
       const matches = (bodyComp.text || '').match(/\{\{\d+\}\}/g) || [];
+      const st = (tpl.status || 'APPROVED').toUpperCase();
+      let badgeStyle = '';
+      if (st === 'PENDING') badgeStyle = 'background: #fef3c7; color: #b45309; border-color: #fde68a;';
+      else if (st === 'REJECTED') badgeStyle = 'background: #fee2e2; color: #b91c1c; border-color: #fecaca;';
 
       tr.innerHTML = `
         <td style="font-weight: 700; color: #0f172a;">${tpl.name}</td>
         <td><span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: 700;">${tpl.category}</span></td>
         <td>${tpl.language}</td>
-        <td><span class="status-badge active"><span class="badge-dot"></span>${tpl.status || 'APPROVED'}</span></td>
+        <td><span class="status-badge active" style="${badgeStyle}"><span class="badge-dot" style="${st === 'PENDING' ? 'background:#d97706;' : st === 'REJECTED' ? 'background:#dc2626;' : ''}"></span>${st}</span></td>
         <td style="font-weight: 600; color: #00a651;">${matches.length} Variables</td>
-        <td style="font-size: 12px; color: #475569; max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${bodyComp.text || ''}</td>
+        <td style="font-size: 12px; color: #475569; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${bodyComp.text || ''}</td>
+        <td>
+          <button type="button" class="btn-action-view btn-view-tpl-row" style="padding: 4px 10px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+            <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
+            <span>View</span>
+          </button>
+        </td>
       `;
+      tr.querySelector('.btn-view-tpl-row').addEventListener('click', () => openViewTemplateModal(tpl));
       tbody.appendChild(tr);
     });
+    initIcons();
+
+    const viewModal = document.getElementById('viewTemplateModal');
+    const btnCloseTop = document.getElementById('btnCloseViewTplModal');
+    const btnCloseBot = document.getElementById('btnCloseViewTplFooter');
+    if (btnCloseTop && viewModal) btnCloseTop.onclick = () => viewModal.style.display = 'none';
+    if (btnCloseBot && viewModal) btnCloseBot.onclick = () => viewModal.style.display = 'none';
   } catch (err) {
     console.error('Error loading templates table:', err);
   }

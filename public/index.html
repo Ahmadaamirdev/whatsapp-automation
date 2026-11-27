@@ -716,6 +716,7 @@
                   <th>Status</th>
                   <th>Variables</th>
                   <th>Body Preview</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody id="templatesTableBody">
@@ -782,17 +783,11 @@
             <input type="text" id="tplHeaderInput" class="form-input" maxlength="60" placeholder="e.g. Al-Haditha Energy Notice">
           </div>
           <div class="form-group" id="tplHeaderMediaWrap" style="display: none;">
-            <label class="form-label">Sample Media (For Meta Approval)</label>
-            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
-              <input type="file" id="tplHeaderFileInput" accept="image/*,video/mp4,application/pdf" style="display: none;">
-              <button type="button" class="btn-action-view" id="btnChooseTplSampleFile" style="font-size: 11px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px;">
-                <i data-lucide="upload" style="width: 12px; height: 12px;"></i>
-                <span id="tplSampleFileLabel">Choose from Computer</span>
-              </button>
-              <span id="tplSampleFileName" style="font-size: 11px; color: #008c44; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;"></span>
+            <label class="form-label">Media Sample Status</label>
+            <input type="hidden" id="tplHeaderMediaInput" value="">
+            <div style="padding: 8px 12px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; font-size: 11px; color: #065f46; font-weight: 600; line-height: 1.4;">
+              ✓ Certified Meta sample is auto-attached for approval. You will select the actual photo, video, or PDF when sending a broadcast.
             </div>
-            <input type="url" id="tplHeaderMediaInput" class="form-input" style="font-size: 11px; padding: 4px 8px;" placeholder="Or paste public media link (optional)">
-            <small style="font-size: 10px; color: #059669; display: block; margin-top: 3px;">✓ Auto-supplies certified sample handle for instant 1-click Meta approval if left empty.</small>
           </div>
         </div>
 
@@ -850,6 +845,36 @@
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
         <button type="button" class="btn-action-view" id="btnCancelModal">Cancel</button>
         <button type="button" class="btn-send" id="btnSubmitTemplateToMeta">Submit to Meta</button>
+      </div>
+    </div>
+  </div>
+
+    <!-- MODAL: VIEW TEMPLATE DETAILS & WHATSAPP PREVIEW -->
+  <div id="viewTemplateModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 540px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="file-text" style="width: 18px; height: 18px; color: #00a651;"></i>
+          <h3 id="viewTplModalTitle" style="margin: 0;">Template Details</h3>
+        </div>
+        <button class="btn-close-modal" id="btnCloseViewTplModal">&times;</button>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;" id="viewTplMetaBadges"></div>
+
+      <div id="viewTplRejectionBox" style="display: none; padding: 10px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #991b1b; font-size: 12px; margin-bottom: 14px;"></div>
+
+      <div style="background: #efeae2; padding: 16px; border-radius: 10px; border: 1px solid #cbd5e1;">
+        <div style="background: #ffffff; border-radius: 8px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); max-width: 100%;">
+          <div id="viewTplHeaderBadge" style="display: none; padding: 8px 12px; background: #f1f5f9; border-radius: 6px; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 8px;"></div>
+          <div id="viewTplHeaderText" style="display: none; font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 6px;"></div>
+          <div id="viewTplBodyText" style="font-size: 13px; color: #1e293b; line-height: 1.5; white-space: pre-wrap;"></div>
+          <div id="viewTplFooterText" style="display: none; font-size: 11px; color: #64748b; margin-top: 8px; padding-top: 6px; border-top: 1px solid #f1f5f9;"></div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+        <button type="button" class="btn-action-view" id="btnCloseViewTplFooter">Close</button>
       </div>
     </div>
   </div>
