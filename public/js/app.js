@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNavigation();
   loadMetrics();
   loadBroadcasts();
+  loadEmployeesTable(1);
   loadTemplates();
   setupBroadcastStudio();
   setupEmployeesModule();
@@ -331,14 +332,22 @@ window.viewBroadcastDetails = async function(bcId) {
   const modal = document.getElementById('broadcastDetailModal');
   if (!modal) return;
 
+  const messagesList = bc.messages || [];
+  const totalCount = messagesList.length > 0 ? messagesList.length : Number(bc.recipients_count || 0);
+  const failedCount = messagesList.length > 0
+    ? messagesList.filter(m => (m.status || '').toLowerCase() === 'failed').length
+    : Number(bc.failed_count || 0);
+  const successCount = messagesList.length > 0
+    ? Math.max(0, totalCount - failedCount)
+    : Number(bc.sent_count || 0);
+  const ratePct = totalCount > 0 ? Math.round((successCount / totalCount) * 1000) / 10 : 0;
+
   document.getElementById('modalDetailTitle').textContent = `Broadcast Report: ${bc.template || bc.template_name || 'Announcement'}`;
   document.getElementById('modalDetailSubtitle').textContent = `ID: ${bc.id} • Sent on ${bc.date || 'Recent'} • Target: ${bc.recipient_filter || 'All'}`;
-  document.getElementById('modalDetailTotal').textContent = Number(bc.recipients_count || (bc.messages ? bc.messages.length : 1)).toLocaleString();
-  document.getElementById('modalDetailDelivered').textContent = Number(bc.sent_count || bc.recipients_count || 1).toLocaleString();
-  document.getElementById('modalDetailRate').textContent = `${bc.delivered_pct || 100}%`;
-  document.getElementById('modalDetailFailed').textContent = Number(bc.failed_count || 0).toLocaleString();
-
-  const messagesList = bc.messages || [];
+  document.getElementById('modalDetailTotal').textContent = totalCount.toLocaleString();
+  document.getElementById('modalDetailDelivered').textContent = successCount.toLocaleString();
+  document.getElementById('modalDetailRate').textContent = `${ratePct}%`;
+  document.getElementById('modalDetailFailed').textContent = failedCount.toLocaleString();
   const tbody = document.getElementById('modalDetailTableBody');
   const searchInput = document.getElementById('modalDetailSearch');
   let activeFilter = 'all';
@@ -372,22 +381,24 @@ window.viewBroadcastDetails = async function(bcId) {
       const isDelivered = (m.status || '').toLowerCase() === 'delivered' || (m.status || '').toLowerCase() === 'read' || (m.status || '').toLowerCase() === 'replied';
       
       const statusBadge = isFailed
-        ? '<span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">✗ Failed</span>'
+        ? '<span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">✗ Failed</span>'
         : isDelivered
-        ? '<span style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">✓ Delivered</span>'
-        : '<span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 11px;">Sent</span>';
+        ? '<span style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">✓ Delivered</span>'
+        : '<span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">Sent</span>';
 
       const reasonHtml = isFailed
         ? `<span style="color: #dc2626; font-weight: 600;">⚠ Meta Error: ${m.error || 'Recipient number not registered on WhatsApp or rejected by Meta'}</span>`
-        : `<span style="color: #059669;">✓ Successfully delivered to WhatsApp</span>`;
+        : isDelivered
+        ? `<span style="color: #059669;">✓ Delivered to WhatsApp</span>`
+        : `<span style="color: #0369a1;">✓ Dispatched to WhatsApp</span>`;
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td style="font-weight: 700; color: #1e293b; padding: 8px 12px;">${m.name || 'Staff Member'}</td>
-        <td style="font-family: monospace; color: #475569; padding: 8px 12px;">${m.phone || '-'}</td>
-        <td style="color: #64748b; padding: 8px 12px;">${m.department || 'Operations'}</td>
-        <td style="padding: 8px 12px;">${statusBadge}</td>
-        <td style="color: #64748b; padding: 8px 12px;">${m.time || '-'}</td>
+        <td style="font-family: monospace; color: #475569; padding: 8px 12px; white-space: nowrap;">${m.phone || '-'}</td>
+        <td style="color: #64748b; padding: 8px 12px; white-space: nowrap;">${m.department || 'Operations'}</td>
+        <td style="padding: 8px 12px; white-space: nowrap;">${statusBadge}</td>
+        <td style="color: #64748b; padding: 8px 12px; white-space: nowrap;">${m.time || '-'}</td>
         <td style="padding: 8px 12px;">${reasonHtml}</td>
       `;
       tbody.appendChild(tr);
@@ -2769,6 +2780,10 @@ async function loadEmployeesTable(page = 1) {
     const pageCurrent = document.getElementById('employeePageCurrent');
     const btnPrev = document.getElementById('btnPrevPageEmployees');
     const btnNext = document.getElementById('btnNextPageEmployees');
+
+    if (tbody && tbody.children.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #64748b; padding: 28px; font-size: 13px;">Loading employee directory...</td></tr>`;
+    }
 
     const search = searchInput ? encodeURIComponent(searchInput.value.trim()) : '';
     const dept = deptSelect ? encodeURIComponent(deptSelect.value) : 'All';
