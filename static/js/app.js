@@ -860,24 +860,8 @@ function syncSelectedEmployeeWithTemplate() {
   }
 }
 
-function updateTemplateVariablesAndPreview() {
-  const select = document.getElementById('broadcastTemplateSelect');
-  if (!select) return;
-  const selectedName = select.value;
-  const tpl = templatesList.find(t => t.name === selectedName);
-  if (!tpl) return;
-
-  const headerComp = (tpl.components || []).find(c => c.type === 'HEADER') || {};
-  const bodyComp = (tpl.components || []).find(c => c.type === 'BODY') || {};
-  const footerComp = (tpl.components || []).find(c => c.type === 'FOOTER') || {};
-
-  const varContainer = document.getElementById('dynamicVariablesContainer');
-  varContainer.innerHTML = '';
-
-  const rawBody = bodyComp.text || "Dear {{1}}, notice: {{2}}. Thank you.";
+function getTemplateVarConfigs(tpl, rawBody) {
   const matches = rawBody.match(/\{\{\d+\}\}/g) || [];
-
-  // Descriptive label mappings for known templates
   const variableLabels = {
     staff_official_notice: [
       { label: "Recipient / Staff Name", varName: "Staff Name", defaultVal: "{Employee Name}", placeholder: "e.g. {name} (Auto-filled per recipient)" },
@@ -898,14 +882,64 @@ function updateTemplateVariablesAndPreview() {
     ]
   };
 
-  const templateSpecific = (tpl.variable_definitions && tpl.variable_definitions.length > 0)
-    ? tpl.variable_definitions.map((v, i) => ({
-        label: v.label || v.name || `Variable ${i + 1}`,
-        varName: v.name || v.label || `Variable ${i + 1}`,
-        defaultVal: (i === 0 && ((v.name || '') + (v.label || '')).toLowerCase().includes('name')) ? "{Employee Name}" : (v.example || `Value ${i + 1}`),
-        placeholder: `e.g. ${v.example || v.label || v.name || 'Value'}`
-      }))
-    : (variableLabels[selectedName] || []);
+  if (tpl.variable_definitions && tpl.variable_definitions.length > 0) {
+    return tpl.variable_definitions.map((v, i) => ({
+      label: v.label || v.name || `Field ${i + 1}`,
+      varName: v.name || v.label || `Field ${i + 1}`,
+      defaultVal: (i === 0 && ((v.name || '') + (v.label || '')).toLowerCase().includes('name')) ? "{Employee Name}" : (v.example || ''),
+      placeholder: `e.g. ${v.example || v.label || v.name || 'Enter details'}`
+    }));
+  }
+
+  if (variableLabels[tpl.name]) {
+    return variableLabels[tpl.name];
+  }
+
+  const bodyComp = (tpl.components || []).find(c => c.type === 'BODY') || {};
+  const metaExamples = (bodyComp.example && bodyComp.example.body_text && bodyComp.example.body_text[0]) ? bodyComp.example.body_text[0] : [];
+
+  return matches.map((m, idx) => {
+    const pos = rawBody.indexOf(m);
+    const before = rawBody.slice(Math.max(0, pos - 40), pos).toLowerCase();
+    const exVal = metaExamples[idx] || '';
+
+    if (idx === 0 && (before.includes('dear') || before.includes('hello') || before.includes('hi') || exVal.toLowerCase().includes('ahmed') || exVal.toLowerCase().includes('staff'))) {
+      return { label: "Recipient / Staff Name", varName: "Staff Name", defaultVal: "{Employee Name}", placeholder: "e.g. {name} (Auto-filled per recipient)" };
+    }
+    if (before.includes('regarding') || before.includes('about') || before.includes('subject') || before.includes('topic')) {
+      return { label: "Announcement Title / Topic", varName: "Topic / Title", defaultVal: exVal || "Office Timings Update", placeholder: `e.g. ${exVal || 'Office Timings Update'}` };
+    }
+    if (before.includes('department') || before.includes('team')) {
+      return { label: "Target Department", varName: "Department", defaultVal: exVal || "All Staff", placeholder: `e.g. ${exVal || 'All Staff'}` };
+    }
+    if (before.includes('date') || before.includes('time') || before.includes('when') || before.includes('occur on')) {
+      return { label: "Date / Time Schedule", varName: "Date / Time", defaultVal: exVal || "Thursday at 2:00 PM", placeholder: `e.g. ${exVal || 'Thursday at 2:00 PM'}` };
+    }
+    if (idx === matches.length - 1 || before.includes('details') || before.includes('follows') || before.includes(':')) {
+      return { label: "Official Notice Details", varName: "Notice Details", defaultVal: exVal || "", placeholder: exVal ? `e.g. ${exVal}` : "Enter full announcement details..." };
+    }
+    return { label: `Announcement Field`, varName: `Details`, defaultVal: exVal || "", placeholder: exVal ? `e.g. ${exVal}` : "Enter details..." };
+  });
+}
+
+function updateTemplateVariablesAndPreview() {
+  const select = document.getElementById('broadcastTemplateSelect');
+  if (!select) return;
+  const selectedName = select.value;
+  const tpl = templatesList.find(t => t.name === selectedName);
+  if (!tpl) return;
+
+  const headerComp = (tpl.components || []).find(c => c.type === 'HEADER') || {};
+  const bodyComp = (tpl.components || []).find(c => c.type === 'BODY') || {};
+  const footerComp = (tpl.components || []).find(c => c.type === 'FOOTER') || {};
+
+  const varContainer = document.getElementById('dynamicVariablesContainer');
+  varContainer.innerHTML = '';
+
+  const rawBody = bodyComp.text || "Dear {{1}}, notice: {{2}}. Thank you.";
+  const matches = rawBody.match(/\{\{\d+\}\}/g) || [];
+
+  const templateSpecific = getTemplateVarConfigs(tpl, rawBody);
 
   if (matches.length > 0) {
     matches.forEach((m, idx) => {
@@ -1801,7 +1835,13 @@ function openViewTemplateModal(tpl) {
   }
 
   if (bodyEl) {
-    const formatted = (bodyComp.text || '').replace(/\{\{(\d+)\}\}/g, '<span style="background: #fef08a; color: #854d0e; padding: 1px 5px; border-radius: 4px; font-weight: 700;">{{$1}}</span>');
+    const rawText = bodyComp.text || '';
+    const configs = getTemplateVarConfigs(tpl, rawText);
+    const formatted = rawText.replace(/\{\{(\d+)\}\}/g, (match, numStr) => {
+      const idx = parseInt(numStr, 10) - 1;
+      const vName = (configs[idx] && (configs[idx].varName || configs[idx].label)) || `Field`;
+      return `<span style="background: #fef08a; color: #854d0e; padding: 1px 6px; border-radius: 4px; font-weight: 700;">{{${vName}}}</span>`;
+    });
     bodyEl.innerHTML = formatted;
   }
 
