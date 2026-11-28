@@ -423,16 +423,30 @@ window.viewBroadcastDetails = async function(bcId) {
     tbody.innerHTML = '';
     filtered.forEach(m => {
       const isFailed = (m.status || '').toLowerCase() === 'failed';
-      const isDelivered = (m.status || '').toLowerCase() === 'delivered' || (m.status || '').toLowerCase() === 'read' || (m.status || '').toLowerCase() === 'replied';
+      const isReplied = (m.status || '').toLowerCase() === 'replied';
+      const isSeen = ['read', 'seen'].includes((m.status || '').toLowerCase());
+      const isDelivered = (m.status || '').toLowerCase() === 'delivered';
       
       const statusBadge = isFailed
         ? '<span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">✗ Failed</span>'
+        : isReplied
+        ? '<span style="background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">💬 Replied</span>'
+        : isSeen
+        ? '<span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">👁 Seen</span>'
         : isDelivered
-        ? '<span style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">✓ Delivered</span>'
-        : '<span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">Sent</span>';
+        ? '<span style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">✓✓ Delivered</span>'
+        : '<span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 11px; white-space: nowrap; display: inline-block;">Sent ✓</span>';
 
+      let displayError = m.error || '';
+      if (displayError.includes('131049')) {
+        displayError = 'Meta Marketing Frequency Cap (#131049): Too many marketing messages sent to this recipient in a short period. Please wait 24h before resending.';
+      }
       const reasonHtml = isFailed
-        ? `<span style="color: #dc2626; font-weight: 600;">⚠ Meta Error: ${m.error || 'Recipient number not registered on WhatsApp or rejected by Meta'}</span>`
+        ? `<span style="color: #dc2626; font-weight: 600;">⚠ Meta Error: ${displayError || 'Recipient number not registered on WhatsApp or rejected by Meta'}</span>`
+        : isReplied
+        ? `<span style="color: #7e22ce;">💬 Employee replied to this broadcast</span>`
+        : isSeen
+        ? `<span style="color: #0369a1;">👁 Message seen by recipient</span>`
         : isDelivered
         ? `<span style="color: #059669;">✓ Delivered to WhatsApp</span>`
         : `<span style="color: #0369a1;">✓ Dispatched to WhatsApp</span>`;
@@ -562,7 +576,10 @@ async function loadTrackerLogs() {
       } else if (st === 'replied') {
         badgeHtml = `<span class="status-pill" style="background:#f3e8ff; color:#7e22ce; font-weight:700;"><span class="badge-dot" style="background:#9333ea;"></span>Replied 💬</span>`;
       } else if (st === 'failed') {
-        badgeHtml = `<span class="status-pill" style="background:#ffe4e6; color:#be123c; font-weight:700;" title="${r.error || 'Meta API delivery failed'}"><span class="badge-dot" style="background:#e11d48;"></span>Failed ⚠️</span>`;
+        const errMsg = (r.error || '').includes('131049')
+          ? 'Marketing Frequency Cap: Too many marketing messages sent to this recipient in a short period. Wait 24h.'
+          : (r.error || 'Meta API delivery failed');
+        badgeHtml = `<span class="status-pill" style="background:#ffe4e6; color:#be123c; font-weight:700;" title="${errMsg}"><span class="badge-dot" style="background:#e11d48;"></span>Failed ⚠️</span>`;
       } else {
         badgeHtml = `<span class="status-pill" style="background:#fef3c7; color:#b45309; font-weight:700;"><span class="badge-dot" style="background:#f59e0b;"></span>Sent ✓</span>`;
       }
