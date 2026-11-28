@@ -31,12 +31,20 @@ document.addEventListener('DOMContentLoaded', () => {
     bell.addEventListener('click', () => switchTab('messages'));
   }
 
-  // Periodic polling for incoming messages & metrics every 3 seconds
-  pollingInterval = setInterval(() => {
-    loadChats(false);
-    loadMetrics();
-    if (currentTab === 'broadcasts') { loadTrackerLogs(); }
-  }, 3000);
+  // Periodic polling with in-flight guard to prevent request pile-ups
+  let isPollingTick = false;
+  pollingInterval = setInterval(async () => {
+    if (isPollingTick) return;
+    isPollingTick = true;
+    try {
+      const tasks = [loadMetrics()];
+      if (currentTab === 'messages') tasks.push(loadChats(false));
+      if (currentTab === 'broadcasts') tasks.push(loadTrackerLogs());
+      await Promise.all(tasks);
+    } finally {
+      isPollingTick = false;
+    }
+  }, 4000);
 });
 
 function initIcons() {
@@ -229,6 +237,39 @@ async function loadBroadcasts() {
   }
 }
 
+function getBroadcastStats(bc) {
+  const messagesList = bc.messages || [];
+  const totalCount = messagesList.length > 0 ? messagesList.length : Number(bc.recipients_count || 0);
+  const failedCount = messagesList.length > 0
+    ? messagesList.filter(m => (m.status || '').toLowerCase() === 'failed').length
+    : Number(bc.failed_count || 0);
+  const successCount = messagesList.length > 0
+    ? Math.max(0, totalCount - failedCount)
+    : Number(bc.sent_count !== undefined ? bc.sent_count : Math.max(0, totalCount - failedCount));
+  const deliveredPct = totalCount > 0 ? Math.round((successCount / totalCount) * 1000) / 10 : 0;
+  const readCount = messagesList.length > 0
+    ? messagesList.filter(m => ['read', 'seen', 'replied'].includes((m.status || '').toLowerCase())).length
+    : 0;
+  const readPct = messagesList.length > 0 && totalCount > 0
+    ? Math.round((readCount / totalCount) * 1000) / 10
+    : Number(bc.read_pct ?? 0);
+  const repliesCount = messagesList.length > 0
+    ? messagesList.filter(m => (m.status || '').toLowerCase() === 'replied').length
+    : Number(bc.replies_count ?? 0);
+  const statusText = failedCount === 0 ? 'Completed' : `${successCount} Dispatched, ${failedCount} Failed`;
+  return { totalCount, failedCount, successCount, deliveredPct, readPct, repliesCount, statusText };
+}
+
+function formatRecipientTarget(bc, stats) {
+  const count = (stats ? stats.totalCount : Number(bc.recipients_count || 0)).toLocaleString();
+  let label = (bc.recipient_filter || 'All Employees').trim();
+  // Strip redundant trailing "(N)" from labels like "By Csv (4)" or "All Employees (5)"
+  label = label.replace(/\s*\(\d+\)\s*$/g, '').trim();
+  if (/^by csv$/i.test(label)) label = 'CSV Upload';
+  else if (/^by custom$/i.test(label)) label = 'Custom List';
+  return `<span style="font-weight: 700; color: #0f172a;">${count}</span> <span style="color: #64748b; font-size: 12px;">(${label || 'Recipients'})</span>`;
+}
+
 function renderDashboardBroadcasts(list) {
   const tbody = document.getElementById('dashboardBroadcastsTableBody');
   if (!tbody) return;
@@ -250,14 +291,18 @@ function renderDashboardBroadcasts(list) {
   }
 
   filtered.slice(0, 6).forEach(bc => {
+    const stats = getBroadcastStats(bc);
+    const hasFailures = stats.failedCount > 0;
+    const badgeStyle = hasFailures ? 'background: #fff7ed; color: #c2410c; border-color: #fed7aa;' : '';
+    const dotStyle = hasFailures ? 'background: #ea580c;' : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${bc.date || 'Recent'}</td>
+      <td style="white-space: nowrap; color: #475569;">${bc.date || 'Recent'}</td>
       <td style="font-weight: 700; color: #0f172a;">${bc.template || 'Announcement'}</td>
-      <td>${Number(bc.recipients_count || 1).toLocaleString()} (${bc.recipient_filter || 'Recipients'})</td>
-      <td style="font-weight: 700; color: ${(bc.delivered_pct ?? 100) > 0 ? '#00a651' : '#dc2626'};">${bc.delivered_pct !== undefined && bc.delivered_pct !== null ? bc.delivered_pct : 0}%</td>
-      <td style="color: #0284c7; font-weight: 600;">${bc.read_pct || 91.5}%</td>
-      <td><span class="status-badge active"><span class="badge-dot"></span>${bc.status || 'Completed'}</span></td>
+      <td>${formatRecipientTarget(bc, stats)}</td>
+      <td style="font-weight: 700; color: ${stats.deliveredPct > 0 ? '#00a651' : '#dc2626'};">${stats.deliveredPct}%</td>
+      <td style="color: #0284c7; font-weight: 600;">${stats.readPct}%</td>
+      <td><span class="status-badge active" style="${badgeStyle}"><span class="badge-dot" style="${dotStyle}"></span>${stats.statusText}</span></td>
       <td>
         <button type="button" class="btn-action-view" onclick="viewBroadcastDetails('${bc.id || ''}')" title="View Detailed Delivery Logs & Failure Reasons" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 700; color: #0284c7; border-color: #bae6fd; background: #f0f9ff;">
           <i data-lucide="eye" style="width: 13px; height: 13px;"></i>
@@ -267,6 +312,7 @@ function renderDashboardBroadcasts(list) {
     `;
     tbody.appendChild(tr);
   });
+  initIcons();
 }
 
 function renderFullBroadcasts(list) {
@@ -281,11 +327,12 @@ function renderFullBroadcasts(list) {
   const statusFilter = statusSelect ? statusSelect.value : 'all';
 
   const filtered = list.filter(b => {
+    const stats = getBroadcastStats(b);
     const matchesSearch = !term ||
       (b.template || '').toLowerCase().includes(term) ||
       (b.content || '').toLowerCase().includes(term) ||
       (b.id || '').toLowerCase().includes(term);
-    const matchesStatus = statusFilter === 'all' || (b.status || '').toLowerCase() === statusFilter.toLowerCase();
+    const matchesStatus = statusFilter === 'all' || stats.statusText.toLowerCase().includes(statusFilter.toLowerCase());
     return matchesSearch && matchesStatus;
   });
 
@@ -295,17 +342,21 @@ function renderFullBroadcasts(list) {
   }
 
   filtered.forEach(bc => {
+    const stats = getBroadcastStats(bc);
+    const hasFailures = stats.failedCount > 0;
+    const badgeStyle = hasFailures ? 'background: #fff7ed; color: #c2410c; border-color: #fed7aa;' : '';
+    const dotStyle = hasFailures ? 'background: #ea580c;' : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="font-family: monospace; font-size: 11px; color: #64748b;">${bc.id || 'BC-LIVE'}</td>
-      <td>${bc.date || 'Today'}</td>
+      <td><span class="bc-id-pill">${bc.id || 'BC-LIVE'}</span></td>
+      <td style="white-space: nowrap; color: #475569;">${bc.date || 'Today'}</td>
       <td style="font-weight: 700; color: #0f172a;">${bc.template || 'Announcement'}</td>
-      <td>${Number(bc.recipients_count || 1).toLocaleString()} (${bc.recipient_filter || 'All'})</td>
-      <td style="font-weight: 700; color: #00a651;">${bc.delivered_pct || 98.2}%</td>
-      <td style="color: #0284c7; font-weight: 600;">${bc.read_pct || 91.5}%</td>
-      <td style="color: #9333ea; font-weight: 600;">${bc.replies_count || 0}</td>
-      <td><span class="status-badge active"><span class="badge-dot"></span>${bc.status || 'Completed'}</span></td>
-      <td>
+      <td>${formatRecipientTarget(bc, stats)}</td>
+      <td style="text-align: center; font-weight: 700; color: ${stats.deliveredPct > 0 ? '#00a651' : '#dc2626'};">${stats.deliveredPct}%</td>
+      <td style="text-align: center; color: #0284c7; font-weight: 600;">${stats.readPct}%</td>
+      <td style="text-align: center; color: #9333ea; font-weight: 700;">${stats.repliesCount}</td>
+      <td><span class="status-badge active" style="${badgeStyle}"><span class="badge-dot" style="${dotStyle}"></span>${stats.statusText}</span></td>
+      <td style="text-align: right;">
         <button type="button" class="btn-action-view" onclick="viewBroadcastDetails('${bc.id || ''}')" title="View Detailed Delivery Logs & Failure Reasons" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 700; color: #0284c7; border-color: #bae6fd; background: #f0f9ff;">
           <i data-lucide="eye" style="width: 13px; height: 13px;"></i>
           <span>View Log</span>
@@ -314,6 +365,7 @@ function renderFullBroadcasts(list) {
     `;
     tbody.appendChild(tr);
   });
+  initIcons();
 }
 
 window.viewBroadcastDetails = async function(bcId) {
@@ -333,14 +385,7 @@ window.viewBroadcastDetails = async function(bcId) {
   if (!modal) return;
 
   const messagesList = bc.messages || [];
-  const totalCount = messagesList.length > 0 ? messagesList.length : Number(bc.recipients_count || 0);
-  const failedCount = messagesList.length > 0
-    ? messagesList.filter(m => (m.status || '').toLowerCase() === 'failed').length
-    : Number(bc.failed_count || 0);
-  const successCount = messagesList.length > 0
-    ? Math.max(0, totalCount - failedCount)
-    : Number(bc.sent_count || 0);
-  const ratePct = totalCount > 0 ? Math.round((successCount / totalCount) * 1000) / 10 : 0;
+  const { totalCount, failedCount, successCount, deliveredPct: ratePct } = getBroadcastStats(bc);
 
   document.getElementById('modalDetailTitle').textContent = `Broadcast Report: ${bc.template || bc.template_name || 'Announcement'}`;
   document.getElementById('modalDetailSubtitle').textContent = `ID: ${bc.id} • Sent on ${bc.date || 'Recent'} • Target: ${bc.recipient_filter || 'All'}`;
@@ -1669,6 +1714,76 @@ function cleanChatSnippet(text) {
 }
 
 let lastChatsSignature = '';
+const chatHistoryCache = {};
+let chatLoadSeq = 0;
+
+function renderChatMessagesToArea(chat, scrollBottom = false) {
+  const nameEl = document.getElementById('activeChatName');
+  const phoneEl = document.getElementById('activeChatPhone');
+  const avatarEl = document.getElementById('activeChatAvatar');
+  const msgArea = document.getElementById('waMessagesArea');
+  const headerEl = document.getElementById('waChatHeader');
+  const inputBarEl = document.querySelector('.wa-input-bar');
+  const phone = chat.phone || activePhone;
+
+  if (headerEl) headerEl.style.display = 'flex';
+  if (inputBarEl) inputBarEl.style.display = 'flex';
+  if (nameEl) nameEl.textContent = chat.name || phone;
+  if (phoneEl) phoneEl.textContent = `${phone} • ${chat.role || 'Active on WhatsApp'}`;
+  if (avatarEl) {
+    const initials = (chat.name || 'WA').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    avatarEl.textContent = initials;
+  }
+  if (!msgArea) return;
+
+  const msgs = chat.messages || [];
+  const sig = `${phone}:${msgs.length}:${msgs.length ? (msgs[msgs.length - 1].id || '') + ':' + (msgs[msgs.length - 1].status || '') : '0'}`;
+  if (!scrollBottom && msgArea.dataset.renderSig === sig) return;
+  msgArea.dataset.renderSig = sig;
+  msgArea.innerHTML = '';
+
+  if (msgs.length === 0) {
+    msgArea.innerHTML = `<div style="text-align: center; color: #64748b; font-size: 13px; margin: auto;">No messages in this conversation yet. Send a message below to start chatting.</div>`;
+    return;
+  }
+
+  msgs.forEach(m => {
+    const isOut = m.direction === 'outgoing';
+    const bubble = document.createElement('div');
+    bubble.className = `wa-bubble ${isOut ? 'outgoing' : 'incoming'}`;
+    if (m.id) bubble.dataset.msgId = m.id;
+    let mediaHtml = '';
+    if (m.media_url) {
+      const mType = (m.media_type || 'image').toLowerCase();
+      if (mType === 'image') {
+        mediaHtml = `
+          <div style="position: relative; border-radius: 8px; overflow: hidden; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); background: #f8fafc; max-width: 320px;">
+            <img src="${m.media_url}" alt="Image attachment" style="width: 100%; max-height: 260px; object-fit: cover; display: block; cursor: pointer;" onclick="window.open('${m.media_url}', '_blank')" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <div style="display: none; padding: 12px; background: rgba(0,0,0,0.04); font-size: 12px; color: #64748b; align-items: center; gap: 8px;"><span>📷</span><span>Image attachment</span></div>
+          </div>`;
+      } else if (mType === 'sticker') {
+        mediaHtml = `<div style="margin-bottom: 4px; max-width: 150px;"><img src="${m.media_url}" alt="Sticker" style="width: 140px; height: 140px; object-fit: contain; display: block; cursor: pointer;" onclick="window.open('${m.media_url}', '_blank')"></div>`;
+      } else if (mType === 'audio') {
+        mediaHtml = `<div style="margin-bottom: 6px; min-width: 240px;"><audio src="${m.media_url}" controls style="width: 100%; height: 36px;"></audio></div>`;
+      } else if (mType === 'video') {
+        mediaHtml = `<div style="position: relative; border-radius: 8px; overflow: hidden; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); background: #000; max-width: 320px;"><video src="${m.media_url}" controls style="width: 100%; max-height: 260px; border-radius: 8px; display: block;"></video></div>`;
+      } else {
+        mediaHtml = `<a href="${m.media_url}" target="_blank" style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.08); padding: 10px 14px; border-radius: 8px; margin-bottom: 6px; text-decoration: none; color: inherit; font-size: 13px; font-weight: 500; max-width: 320px;"><span style="font-size: 22px;">📄</span><div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><div style="font-weight: 600; color: #0f172a;">Attachment Document</div><div style="font-size: 11px; color: #64748b;">Click to view file</div></div></a>`;
+      }
+    }
+    const ticks = isOut ? (m.status === 'pending' ? '✓' : (m.status === 'failed' ? '!' : '✓✓')) : '';
+    bubble.innerHTML = `
+      ${mediaHtml}
+      <div>${formatWhatsAppText(m.text || '')}</div>
+      <div class="wa-msg-meta">
+        <span>${formatLocalTime(m.time, m.timestamp)}</span>
+        ${isOut ? `<span class="wa-ticks" style="${m.status === 'failed' ? 'color:#dc2626;' : ''}">${ticks}</span>` : ''}
+      </div>
+    `;
+    msgArea.appendChild(bubble);
+  });
+  msgArea.scrollTop = msgArea.scrollHeight;
+}
 
 async function loadChats(forceRerender = false) {
   try {
@@ -1785,6 +1900,26 @@ function renderConversationsList(chats) {
       activePhone = chat.phone;
       document.querySelectorAll('.wa-chat-row').forEach(r => r.classList.remove('active'));
       row.classList.add('active');
+      // Instant optimistic render from cache or show header immediately while syncing
+      if (chatHistoryCache[chat.phone]) {
+        renderChatMessagesToArea(chatHistoryCache[chat.phone], true);
+      } else {
+        const headerEl = document.getElementById('waChatHeader');
+        const inputBarEl = document.querySelector('.wa-input-bar');
+        const nameEl = document.getElementById('activeChatName');
+        const phoneEl = document.getElementById('activeChatPhone');
+        const avatarEl = document.getElementById('activeChatAvatar');
+        const msgArea = document.getElementById('waMessagesArea');
+        if (headerEl) headerEl.style.display = 'flex';
+        if (inputBarEl) inputBarEl.style.display = 'flex';
+        if (nameEl) nameEl.textContent = chat.name || chat.phone;
+        if (phoneEl) phoneEl.textContent = `${chat.phone} • ${chat.role || 'Active on WhatsApp'}`;
+        if (avatarEl) avatarEl.textContent = initials;
+        if (msgArea) {
+          msgArea.dataset.renderSig = '';
+          msgArea.innerHTML = `<div style="text-align: center; color: #64748b; font-size: 13px; margin: auto;">Loading conversation...</div>`;
+        }
+      }
       loadActiveChat(chat.phone, true);
     });
 
@@ -1793,103 +1928,16 @@ function renderConversationsList(chats) {
 }
 
 async function loadActiveChat(phone, scrollBottom = false) {
+  const reqId = ++chatLoadSeq;
   try {
     const res = await fetch(`/api/chats/${encodeURIComponent(phone)}`);
     if (!res.ok) return;
     const chat = await res.json();
+    chat.phone = chat.phone || phone;
+    chatHistoryCache[phone] = chat;
 
-    const nameEl = document.getElementById('activeChatName');
-    const phoneEl = document.getElementById('activeChatPhone');
-    const avatarEl = document.getElementById('activeChatAvatar');
-    const msgArea = document.getElementById('waMessagesArea');
-    const headerEl = document.getElementById('waChatHeader');
-    const inputBarEl = document.querySelector('.wa-input-bar');
-
-    if (headerEl) headerEl.style.display = 'flex';
-    if (inputBarEl) inputBarEl.style.display = 'flex';
-
-    if (nameEl) nameEl.textContent = chat.name || phone;
-    if (phoneEl) phoneEl.textContent = `${phone} • ${chat.role || 'Active on WhatsApp'}`;
-    
-    if (avatarEl) {
-      const initials = (chat.name || 'WA').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-      avatarEl.textContent = initials;
-    }
-
-    if (!msgArea) return;
-
-    // Check if message count changed before full innerHTML rewrite to preserve scroll position
-    const msgs = chat.messages || [];
-    const currentCount = msgArea.children.length;
-
-    if (currentCount !== msgs.length || scrollBottom) {
-      msgArea.innerHTML = '';
-
-      if (msgs.length === 0) {
-        msgArea.innerHTML = `<div style="text-align: center; color: #64748b; font-size: 13px; margin: auto;">No messages in this conversation yet. Send a message below to start chatting.</div>`;
-      } else {
-        msgs.forEach(m => {
-          const isOut = m.direction === 'outgoing';
-          const bubble = document.createElement('div');
-          bubble.className = `wa-bubble ${isOut ? 'outgoing' : 'incoming'}`;
-          let mediaHtml = '';
-          if (m.media_url) {
-            const mType = (m.media_type || 'image').toLowerCase();
-            if (mType === 'image') {
-              mediaHtml = `
-                <div style="position: relative; border-radius: 8px; overflow: hidden; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); background: #f8fafc; max-width: 320px;">
-                  <img src="${m.media_url}" 
-                       alt="Image attachment" 
-                       style="width: 100%; max-height: 260px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.15s ease;" 
-                       onclick="window.open('${m.media_url}', '_blank')"
-                       title="Click to view full image"
-                       onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                  <div style="display: none; padding: 12px; background: rgba(0,0,0,0.04); font-size: 12px; color: #64748b; align-items: center; gap: 8px;">
-                    <span>📷</span><span>Image attachment</span>
-                  </div>
-                </div>`;
-            } else if (mType === 'sticker') {
-              mediaHtml = `
-                <div style="margin-bottom: 4px; max-width: 150px;">
-                  <img src="${m.media_url}" alt="Sticker" style="width: 140px; height: 140px; object-fit: contain; display: block; cursor: pointer;" onclick="window.open('${m.media_url}', '_blank')">
-                </div>`;
-            } else if (mType === 'audio') {
-              mediaHtml = `
-                <div style="margin-bottom: 6px; min-width: 240px;">
-                  <audio src="${m.media_url}" controls style="width: 100%; height: 36px;"></audio>
-                </div>`;
-            } else if (mType === 'video') {
-              mediaHtml = `
-                <div style="position: relative; border-radius: 8px; overflow: hidden; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); background: #000; max-width: 320px;">
-                  <video src="${m.media_url}" controls style="width: 100%; max-height: 260px; border-radius: 8px; display: block;"></video>
-                </div>`;
-            } else {
-              mediaHtml = `
-                <a href="${m.media_url}" target="_blank" style="display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.08); padding: 10px 14px; border-radius: 8px; margin-bottom: 6px; text-decoration: none; color: inherit; font-size: 13px; font-weight: 500; max-width: 320px;">
-                  <span style="font-size: 22px;">📄</span>
-                  <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    <div style="font-weight: 600; color: #0f172a;">Attachment Document</div>
-                    <div style="font-size: 11px; color: #64748b;">Click to view file</div>
-                  </div>
-                </a>`;
-            }
-          }
-
-          bubble.innerHTML = `
-            ${mediaHtml}
-            <div>${formatWhatsAppText(m.text || '')}</div>
-            <div class="wa-msg-meta">
-              <span>${formatLocalTime(m.time, m.timestamp)}</span>
-              ${isOut ? '<span class="wa-ticks">✓✓</span>' : ''}
-            </div>
-          `;
-          msgArea.appendChild(bubble);
-        });
-
-        // Auto scroll to bottom
-        msgArea.scrollTop = msgArea.scrollHeight;
-      }
-    }
+    if (reqId !== chatLoadSeq || activePhone !== phone) return;
+    renderChatMessagesToArea(chat, scrollBottom);
   } catch (err) {
     console.error('Error loading active chat:', err);
   }
@@ -2118,23 +2166,55 @@ function setupWhatsAppWebMessaging() {
   async function sendMessage() {
     if (!input) return;
     const text = input.value.trim();
-    if (!text || !activePhone) return;
+    const targetPhone = activePhone;
+    if (!text || !targetPhone) return;
 
     input.value = '';
 
+    // Optimistic immediate UI append
+    const tempId = `pending_${Date.now()}`;
+    const nowIso = new Date().toISOString();
+    const optimisticMsg = {
+      id: tempId,
+      direction: 'outgoing',
+      sender: 'Al Haditha Energy',
+      text: text,
+      time: formatLocalTime('', nowIso),
+      timestamp: nowIso,
+      status: 'pending'
+    };
+    if (!chatHistoryCache[targetPhone]) {
+      chatHistoryCache[targetPhone] = { phone: targetPhone, messages: [] };
+    }
+    chatHistoryCache[targetPhone].messages.push(optimisticMsg);
+    renderChatMessagesToArea(chatHistoryCache[targetPhone], true);
+
     try {
-      const res = await fetch(`/api/chats/${encodeURIComponent(activePhone)}/send`, {
+      const res = await fetch(`/api/chats/${encodeURIComponent(targetPhone)}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: text })
       });
 
       if (res.ok) {
-        loadActiveChat(activePhone, true);
+        const data = await res.json();
+        const savedMsg = data.message || { ...optimisticMsg, status: 'sent' };
+        const msgs = chatHistoryCache[targetPhone].messages;
+        const idx = msgs.findIndex(m => m.id === tempId);
+        if (idx !== -1) msgs[idx] = savedMsg;
+        if (activePhone === targetPhone) {
+          renderChatMessagesToArea(chatHistoryCache[targetPhone], true);
+        }
         loadChats(false);
       }
     } catch (err) {
       console.error('Error sending chat message:', err);
+      const msgs = chatHistoryCache[targetPhone].messages;
+      const idx = msgs.findIndex(m => m.id === tempId);
+      if (idx !== -1) msgs[idx].status = 'failed';
+      if (activePhone === targetPhone) {
+        renderChatMessagesToArea(chatHistoryCache[targetPhone], true);
+      }
     }
   }
 
@@ -2254,8 +2334,7 @@ async function loadTemplatesTable() {
         <td>${tpl.language}</td>
         <td><span class="status-badge active" style="${badgeStyle}"><span class="badge-dot" style="${st === 'PENDING' ? 'background:#d97706;' : st === 'REJECTED' ? 'background:#dc2626;' : ''}"></span>${st}</span></td>
         <td style="font-weight: 600; color: #00a651;">${matches.length} Variables</td>
-        <td style="font-size: 12px; color: #475569; max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${bodyComp.text || ''}</td>
-        <td>
+        <td style="text-align: right;">
           <button type="button" class="btn-action-view btn-view-tpl-row" style="padding: 4px 10px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
             <i data-lucide="eye" style="width: 12px; height: 12px;"></i>
             <span>View</span>

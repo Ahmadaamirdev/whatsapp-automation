@@ -46,52 +46,121 @@ SEED_DATA_DIR = next((p for p in possible_data_dirs if p.exists()), BASE_DIR / "
 IS_VERCEL = bool(os.getenv("VERCEL"))
 DATA_DIR = Path("/tmp/data") if IS_VERCEL else SEED_DATA_DIR
 
-# MongoDB Atlas Integration (Robust pool with auto-reconnection for serverless & local)
+# Redis Integration (Optional high-speed cache via REDIS_URL / UPSTASH_REDIS_URL / KV_URL)
+REDIS_URL = os.getenv("REDIS_URL") or os.getenv("UPSTASH_REDIS_URL") or os.getenv("KV_URL") or ""
+_redis_client = None
+_redis_init_attempted = False
+
+def get_redis():
+    global _redis_client, _redis_init_attempted
+    if not REDIS_URL:
+        return None
+    if _redis_client is not None:
+        return _redis_client
+    if _redis_init_attempted:
+        return None
+    _redis_init_attempted = True
+    try:
+        import redis
+        _redis_client = redis.from_url(
+            REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+            retry_on_timeout=False,
+        )
+        _redis_client.ping()
+        print("[REDIS] Connected to Redis cache")
+        return _redis_client
+    except Exception as e:
+        print(f"[REDIS] Unavailable (falling back to MongoDB): {e}")
+        _redis_client = None
+        return None
+
+def cache_get(key: str):
+    r = get_redis()
+    if not r:
+        return None
+    try:
+        raw = r.get(key)
+        return json.loads(raw) if raw is not None else None
+    except Exception:
+        return None
+
+def cache_set(key: str, value: Any, ttl: int = 60):
+    r = get_redis()
+    if not r:
+        return
+    try:
+        r.setex(key, ttl, json.dumps(value, ensure_ascii=False))
+    except Exception:
+        pass
+
+def cache_delete(*keys: str):
+    r = get_redis()
+    if not r or not keys:
+        return
+    try:
+        r.delete(*keys)
+    except Exception:
+        pass
+
+# MongoDB Atlas Integration (Robust pool with lazy reconnection, no per-call ping overhead)
 _mongo_client = None
 _db = None
+_indexes_created = False
+
+def _ensure_indexes(database):
+    global _indexes_created
+    if _indexes_created or database is None:
+        return
+    _indexes_created = True
+    try:
+        database["chats"].create_index("phone")
+        database["broadcasts"].create_index("id")
+        database["broadcasts"].create_index([("timestamp", -1)])
+        database["employees"].create_index("id")
+        database["employees"].create_index("phone")
+    except Exception:
+        pass
 
 def get_db():
     global _mongo_client, _db
     if not MONGODB_URI:
         return None
     if _db is not None:
-        try:
-            _db.command("ping")
-            return _db
-        except Exception:
-            _mongo_client = None
-            _db = None
+        return _db
 
     try:
         import certifi
         ca = certifi.where()
         _mongo_client = MongoClient(
             MONGODB_URI,
-            serverSelectionTimeoutMS=15000,
-            connectTimeoutMS=15000,
-            socketTimeoutMS=15000,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=5000,
+            socketTimeoutMS=10000,
             tlsCAFile=ca,
             tlsAllowInvalidCertificates=True,
             maxPoolSize=50,
             retryWrites=True
         )
         _db = _mongo_client["alhaditha_wa"]
-        _db.command("ping")
+        _ensure_indexes(_db)
         print("[MONGODB] Connected to MongoDB Atlas (database: alhaditha_wa)")
         return _db
-    except Exception as e:
+    except Exception:
         try:
             _mongo_client = MongoClient(
                 MONGODB_URI,
-                serverSelectionTimeoutMS=15000,
-                connectTimeoutMS=15000,
-                socketTimeoutMS=15000,
+                serverSelectionTimeoutMS=5000,
+                connectTimeoutMS=5000,
+                socketTimeoutMS=10000,
                 tls=True,
                 maxPoolSize=50,
                 retryWrites=True
             )
             _db = _mongo_client["alhaditha_wa"]
-            _db.command("ping")
+            _ensure_indexes(_db)
             print("[MONGODB] Connected to MongoDB Atlas (fallback TLS)")
             return _db
         except Exception as e2:
@@ -268,31 +337,87 @@ def get_system_status():
     return result
 
 
+def compute_broadcast_metrics(b: Dict[str, Any]) -> Dict[str, Any]:
+    """Single source of truth for broadcast delivery/read/reply metrics (synced with View Log)."""
+    msgs = b.get("messages") or []
+    if msgs:
+        total = len(msgs)
+        failed = sum(1 for m in msgs if str(m.get("status", "")).lower() == "failed")
+        sent_ok = max(0, total - failed)
+        read_cnt = sum(1 for m in msgs if str(m.get("status", "")).lower() in ("read", "seen", "replied"))
+        replied_cnt = sum(1 for m in msgs if str(m.get("status", "")).lower() == "replied")
+    else:
+        total = int(b.get("recipients_count", 0) or 0)
+        failed = int(b.get("failed_count", 0) or 0)
+        sent_ok = int(b.get("sent_count", max(0, total - failed)) or 0)
+        read_cnt = 0
+        replied_cnt = int(b.get("replies_count", 0) or 0)
+
+    delivered_pct = round((sent_ok / total) * 100, 1) if total > 0 else 0.0
+    read_pct = round((read_cnt / total) * 100, 1) if total > 0 else 0.0
+    status_str = "Completed" if failed == 0 else f"{sent_ok} Dispatched, {failed} Failed"
+
+    enriched = dict(b)
+    enriched["recipients_count"] = total
+    enriched["sent_count"] = sent_ok
+    enriched["failed_count"] = failed
+    enriched["delivered_pct"] = delivered_pct
+    enriched["read_pct"] = read_pct
+    enriched["replies_count"] = replied_cnt
+    enriched["status"] = status_str
+    return enriched
+
+def _get_broadcasts_normalized() -> List[Dict[str, Any]]:
+    cached = cache_get("broadcasts")
+    if cached is not None:
+        return cached
+    raw_list = load_json("broadcasts.json", [])
+    normalized = [compute_broadcast_metrics(b) for b in raw_list]
+    cache_set("broadcasts", normalized, ttl=60)
+    return normalized
+
 # --- 2. DASHBOARD KPI METRICS ---
 @app.get("/api/metrics")
 @app.get("/metrics")
 def get_dashboard_metrics():
-    broadcasts = load_json("broadcasts.json", [])
-    messages = load_json("messages.json", {})
-    
+    cached = cache_get("metrics")
+    if cached is not None:
+        return cached
+
+    broadcasts = _get_broadcasts_normalized()
     total_broadcasts = len(broadcasts)
-    total_conversations = len(messages)
-    total_unread = sum(c.get("unread_count", 0) for c in messages.values())
-    
+
+    database = get_db()
+    if database is not None:
+        try:
+            chat_meta = list(database["chats"].find({}, {"_id": 0, "unread_count": 1}))
+            total_conversations = len(chat_meta)
+            total_unread = sum(c.get("unread_count", 0) for c in chat_meta)
+        except Exception:
+            messages = load_json("messages.json", {})
+            total_conversations = len(messages)
+            total_unread = sum(c.get("unread_count", 0) for c in messages.values())
+    else:
+        messages = load_json("messages.json", {})
+        total_conversations = len(messages)
+        total_unread = sum(c.get("unread_count", 0) for c in messages.values())
+
     if broadcasts:
-        avg_delivery = round(sum(b.get("delivered_pct", 98.0) for b in broadcasts) / len(broadcasts), 1)
+        avg_delivery = round(sum(b.get("delivered_pct", 0.0) for b in broadcasts) / len(broadcasts), 1)
         total_replies = sum(b.get("replies_count", 0) for b in broadcasts)
     else:
-        avg_delivery = 98.4
-        total_replies = 483
+        avg_delivery = 0.0
+        total_replies = 0
 
-    return {
+    result = {
         "total_broadcasts": total_broadcasts,
         "overall_delivery_rate": f"{avg_delivery}%",
         "total_replies": total_replies,
         "total_conversations": total_conversations,
         "total_unread": total_unread
     }
+    cache_set("metrics", result, ttl=20)
+    return result
 
 
 # --- 3. META MESSAGE TEMPLATES & AUDIT LOG ---
@@ -933,8 +1058,7 @@ def delete_employee(emp_id: str):
 @app.get("/api/broadcasts")
 @app.get("/broadcasts")
 def get_broadcasts():
-    broadcasts = load_json("broadcasts.json", [])
-    return {"broadcasts": broadcasts}
+    return {"broadcasts": _get_broadcasts_normalized()}
 
 class BroadcastSendRequest(BaseModel):
     template_name: str
@@ -1220,6 +1344,7 @@ def send_broadcast(req: BroadcastSendRequest):
 
     broadcasts.insert(0, new_broadcast)
     save_json("broadcasts.json", broadcasts)
+    cache_delete("broadcasts", "chats_list", "metrics")
 
     return {
         "success": True,
@@ -1346,6 +1471,10 @@ def get_broadcasts_tracker(
 @app.get("/api/chats")
 @app.get("/chats")
 def get_chats():
+    cached = cache_get("chats_list")
+    if cached is not None:
+        return {"chats": cached}
+
     database = get_db()
     if database is not None:
         try:
@@ -1360,6 +1489,7 @@ def get_chats():
     for phone, data in messages_db.items():
         msgs = data.get("messages", [])
         last_msg = msgs[-1]["text"] if msgs else ""
+        last_ts = msgs[-1].get("timestamp", "") if msgs else ""
         chats_list.append({
             "phone": phone,
             "employee_id": data.get("employee_id", "EMP-0000"),
@@ -1367,21 +1497,45 @@ def get_chats():
             "role": data.get("role", "Employee"),
             "unread_count": data.get("unread_count", 0),
             "last_activity": data.get("last_activity", ""),
+            "last_timestamp": last_ts,
             "last_message": last_msg,
             "message_count": len(msgs)
         })
-        
+
+    chats_list.sort(key=lambda c: c.get("last_timestamp") or "", reverse=True)
+    cache_set("chats_list", chats_list, ttl=20)
     return {"chats": chats_list}
 
 @app.get("/api/chats/{phone}")
 @app.get("/chats/{phone}")
 def get_chat_history(phone: str):
-    messages_db = load_json("messages.json", {})
-    chat = messages_db.get(phone)
+    cache_key = f"chat:{phone}"
+    cached = cache_get(cache_key)
+    if cached is not None and cached.get("unread_count", 0) == 0:
+        return cached
+
+    database = get_db()
+    chat = None
+    if database is not None:
+        try:
+            chat = database["chats"].find_one({"$or": [{"_id": phone}, {"phone": phone}]}, {"_id": 0})
+        except Exception:
+            chat = None
+
+    if chat is None and database is None:
+        messages_db = load_json("messages.json", {})
+        chat = messages_db.get(phone)
+
     if not chat:
-        # Return an empty thread without polluting the database until a message is sent
-        employees = load_json("employees.json", [])
-        emp = next((e for e in employees if e.get("phone") == phone), None)
+        emp = None
+        if database is not None:
+            try:
+                emp = database["employees"].find_one({"phone": phone}, {"_id": 0})
+            except Exception:
+                emp = None
+        if emp is None and database is None:
+            employees = load_json("employees.json", [])
+            emp = next((e for e in employees if e.get("phone") == phone), None)
         return {
             "employee_id": emp.get("id", "EMP-NEW") if emp else "EMP-NEW",
             "name": emp.get("name", phone) if emp else phone,
@@ -1391,12 +1545,22 @@ def get_chat_history(phone: str):
             "messages": [],
             "phone": phone
         }
-    else:
-        # Mark as read
-        if chat.get("unread_count", 0) > 0:
-            chat["unread_count"] = 0
-            save_json("messages.json", messages_db)
-        
+
+    if chat.get("unread_count", 0) > 0:
+        chat["unread_count"] = 0
+        if database is not None:
+            try:
+                database["chats"].update_one({"$or": [{"_id": phone}, {"phone": phone}]}, {"$set": {"unread_count": 0}})
+            except Exception:
+                pass
+        else:
+            messages_db = load_json("messages.json", {})
+            if phone in messages_db:
+                messages_db[phone]["unread_count"] = 0
+                save_json("messages.json", messages_db)
+        cache_delete("chats_list", "metrics")
+
+    cache_set(cache_key, chat, ttl=60)
     return chat
 
 class SendChatMessageRequest(BaseModel):
@@ -1410,7 +1574,6 @@ class SendChatMessageRequest(BaseModel):
 @app.post("/chats/{phone}/send")
 def send_chat_message(phone: str, req: SendChatMessageRequest):
     """Sends a 1-on-1 direct message via WhatsApp Cloud API."""
-    messages_db = load_json("messages.json", {})
     now_time = datetime.now(PKT_TZ).strftime("%I:%M %p")
     
     clean_phone = phone.replace("+", "").replace(" ", "").replace("-", "")
@@ -1454,19 +1617,6 @@ def send_chat_message(phone: str, req: SendChatMessageRequest):
         except Exception as e:
             api_response = {"error": str(e)}
 
-    # Append to local message thread
-    if phone not in messages_db:
-        messages_db[phone] = {
-            "employee_id": "EMP-1001",
-            "name": "Employee",
-            "role": "Employee",
-            "unread_count": 0,
-            "last_activity": now_time,
-            "messages": []
-        }
-        
-    chat = messages_db[phone]
-    
     # Extract Meta message ID or fallback
     meta_messages = api_response.get("messages", []) if isinstance(api_response, dict) else []
     meta_msg_id = meta_messages[0].get("id") if meta_messages else f"m_{int(time.time()*1000)}"
@@ -1492,10 +1642,41 @@ def send_chat_message(phone: str, req: SendChatMessageRequest):
     if error_msg:
         new_msg["error"] = error_msg
 
-    chat["messages"].append(new_msg)
-    chat["last_activity"] = now_time
-    save_json("messages.json", messages_db)
-    
+    database = get_db()
+    if database is not None:
+        try:
+            database["chats"].update_one(
+                {"$or": [{"_id": phone}, {"phone": phone}]},
+                {
+                    "$push": {"messages": new_msg},
+                    "$set": {"last_activity": now_time, "phone": phone},
+                    "$setOnInsert": {
+                        "employee_id": "EMP-1001",
+                        "name": "Employee",
+                        "role": "Employee",
+                        "unread_count": 0
+                    }
+                },
+                upsert=True
+            )
+        except Exception as e:
+            print(f"[MONGODB CHAT SEND ERROR]: {e}")
+    else:
+        messages_db = load_json("messages.json", {})
+        if phone not in messages_db:
+            messages_db[phone] = {
+                "employee_id": "EMP-1001",
+                "name": "Employee",
+                "role": "Employee",
+                "unread_count": 0,
+                "last_activity": now_time,
+                "messages": []
+            }
+        messages_db[phone]["messages"].append(new_msg)
+        messages_db[phone]["last_activity"] = now_time
+        save_json("messages.json", messages_db)
+
+    cache_delete(f"chat:{phone}", "chats_list", "metrics")
     return {"success": not has_error, "message": new_msg, "meta_response": api_response}
 
 
@@ -1646,19 +1827,13 @@ async def receive_webhook(request: Request):
                             broadcasts_changed = True
 
         if broadcasts_changed:
-            for b in broadcasts:
-                b_msgs = b.get("messages", [])
-                if b_msgs:
-                    tot = len(b_msgs)
-                    deliv = sum(1 for m in b_msgs if m.get("status") in ["delivered", "read", "seen", "replied"])
-                    read_cnt = sum(1 for m in b_msgs if m.get("status") in ["read", "seen", "replied"])
-                    replied_cnt = sum(1 for m in b_msgs if m.get("status") == "replied")
-                    b["delivered_pct"] = round((deliv / tot) * 100, 1)
-                    b["read_pct"] = round((read_cnt / tot) * 100, 1)
-                    b["replies_count"] = replied_cnt
+            for i, b in enumerate(broadcasts):
+                broadcasts[i] = compute_broadcast_metrics(b)
             save_json("broadcasts.json", broadcasts)
+            cache_delete("broadcasts")
 
         save_json("messages.json", messages_db)
+        cache_delete("chats_list", "metrics", *[f"chat:{p}" for p in messages_db.keys()])
         return {"status": "success"}
     except Exception as e:
         print(f"[WEBHOOK ERROR] {e}")
@@ -1699,7 +1874,7 @@ def get_root():
 @app.get("/broadcasts/{broadcast_id}/details")
 def get_broadcast_details(broadcast_id: str):
     """Returns recipient-by-recipient delivery logs and failure reasons for a broadcast."""
-    broadcasts = load_json("broadcasts.json", [])
+    broadcasts = _get_broadcasts_normalized()
     matched = next((b for b in broadcasts if b.get("id") == broadcast_id), None)
     if not matched:
         raise HTTPException(status_code=404, detail="Broadcast log not found")

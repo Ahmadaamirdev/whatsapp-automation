@@ -374,9 +374,7 @@
                 <div>
                   <div style="display: flex; align-items: center; gap: 8px;">
                     <h3 style="font-size: 17px; font-weight: 800;">Live WhatsApp Preview</h3>
-                    <span class="preview-badge">Official Format</span>
                   </div>
-                  <p style="font-size: 12px; color: var(--text-muted);">Exact visual representation of what the employee receives on their smartphone.</p>
                 </div>
               </div>
             </div>
@@ -456,19 +454,19 @@
             </div>
           </div>
 
-          <div class="table-responsive">
-            <table class="custom-table">
+          <div class="table-responsive premium-table-wrap">
+            <table class="custom-table premium-table">
               <thead>
                 <tr>
                   <th>Broadcast ID</th>
                   <th>Date & Time</th>
                   <th>Template</th>
                   <th>Target Recipients</th>
-                  <th>Delivered</th>
-                  <th>Read</th>
-                  <th>Replies</th>
+                  <th style="text-align: center;">Delivered</th>
+                  <th style="text-align: center;">Read</th>
+                  <th style="text-align: center;">Replies</th>
                   <th>Status</th>
-                  <th>Action</th>
+                  <th style="text-align: right;">Action</th>
                 </tr>
               </thead>
               <tbody id="fullBroadcastsTableBody">
@@ -564,8 +562,8 @@
           </div>
 
           <!-- DETAILED RECIPIENT STATUSES TABLE -->
-          <div class="table-responsive">
-            <table class="custom-table">
+          <div class="table-responsive premium-table-wrap">
+            <table class="custom-table premium-table">
               <thead>
                 <tr>
                   <th>Broadcast / ID</th>
@@ -750,7 +748,6 @@
           <div class="card-header">
             <div>
               <h2 style="font-size: 20px; font-weight: 800;">Meta WhatsApp Message Templates</h2>
-              <p style="font-size: 13px; color: var(--text-muted);">Manage pre-approved WhatsApp templates and submit new templates directly to Meta Cloud API.</p>
             </div>
             <button class="btn-send" id="btnOpenNewTemplateModal">
               <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
@@ -767,8 +764,7 @@
                   <th>Language</th>
                   <th>Status</th>
                   <th>Variables</th>
-                  <th>Body Preview</th>
-                  <th>Action</th>
+                  <th style="text-align: right;">Action</th>
                 </tr>
               </thead>
               <tbody id="templatesTableBody">
