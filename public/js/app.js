@@ -920,7 +920,7 @@ function setupBroadcastStudio() {
       const isExcel = /\.(xlsx|xls)$/i.test(file.name);
       const reader = new FileReader();
       reader.onload = function(evt) {
-        let text = '';
+        let rows = [];
         if (isExcel) {
           if (typeof XLSX === 'undefined') {
             alert('Excel parser is still loading. Please try again in a moment.');
@@ -928,34 +928,53 @@ function setupBroadcastStudio() {
           }
           const wb = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
           const firstSheet = wb.SheetNames[0];
-          text = XLSX.utils.sheet_to_csv(wb.Sheets[firstSheet]);
+          rows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheet], { header: 1, raw: false, defval: '' })
+            .map(r => (Array.isArray(r) ? r.map(c => String(c ?? '').trim()) : []))
+            .filter(r => r.some(Boolean));
         } else {
-          text = evt.target.result;
+          const splitCsvRow = (line) => {
+            const out = [];
+            let cur = '', inQ = false;
+            for (let ch of line) {
+              if (ch === '"') inQ = !inQ;
+              else if (ch === ',' && !inQ) { out.push(cur.trim().replace(/^['"]|['"]$/g, '')); cur = ''; }
+              else cur += ch;
+            }
+            out.push(cur.trim().replace(/^['"]|['"]$/g, ''));
+            return out;
+          };
+          rows = evt.target.result.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(splitCsvRow);
         }
-        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-        if (lines.length < 2) {
-          alert('CSV file is empty or missing data rows.');
+        if (rows.length < 2) {
+          alert('File is empty or missing data rows.');
           return;
         }
 
-        const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/['"]/g, ''));
+        const headers = rows[0].map(h => h.toLowerCase().trim());
         const nameIdx = headers.findIndex(h => h.includes('name'));
-        const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('number') || h.includes('mobile'));
+        const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('number') || h.includes('mobile') || h.includes('whatsapp'));
         const deptIdx = headers.findIndex(h => h.includes('dept') || h.includes('department'));
         const roleIdx = headers.findIndex(h => h.includes('role') || h.includes('designation') || h.includes('title'));
 
         if (phoneIdx === -1) {
-          alert('CSV must contain a "Phone" column header.');
+          alert('File must contain a "Phone" column header.');
           return;
         }
 
         csvRecipientsList = [];
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(',').map(c => c.trim().replace(/['"]/g, ''));
-          if (!cols[phoneIdx]) continue;
-          
-          let rawPhone = cols[phoneIdx].replace(/\s+/g, '').replace(/-/g, '');
-          if (!rawPhone.startsWith('+')) rawPhone = '+' + rawPhone;
+        const seenCsvPhones = new Set();
+        for (let i = 1; i < rows.length; i++) {
+          const cols = rows[i];
+          let phoneVal = (cols[phoneIdx] || '').trim();
+          if (!phoneVal) continue;
+          if (/^\+?\d+(\.\d+)?e\+\d+$/i.test(phoneVal)) {
+            phoneVal = Number(phoneVal.replace(/^\+/, '')).toLocaleString('fullwide', { useGrouping: false });
+          }
+          let digits = phoneVal.replace(/\D/g, '');
+          if (digits.startsWith('00')) digits = digits.slice(2);
+          if (!digits || seenCsvPhones.has(digits)) continue;
+          seenCsvPhones.add(digits);
+          const rawPhone = '+' + digits;
 
           const rec = {
             id: `CSV-${i}`,

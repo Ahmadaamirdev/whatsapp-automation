@@ -1190,11 +1190,15 @@ def send_broadcast(req: BroadcastSendRequest):
     sent_count = 0
     failed_count = 0
 
+    seen_phones = set()
     for emp in recipients:
-        raw_phone = emp.get("phone", "").strip()
-        clean_phone = raw_phone.replace("+", "").replace(" ", "").replace("-", "")
-        if not clean_phone:
+        raw_phone = str(emp.get("phone", "")).strip()
+        clean_phone = re.sub(r"\D", "", raw_phone)
+        if clean_phone.startswith("00"):
+            clean_phone = clean_phone[2:]
+        if not clean_phone or clean_phone in seen_phones:
             continue
+        seen_phones.add(clean_phone)
 
         emp_name = emp.get("name", "Employee")
 
@@ -1864,10 +1868,21 @@ async def receive_webhook(request: Request):
                 recipient_phone = f"+{raw_recipient}"
                 status_val = status_update.get("status")
                 msg_id = status_update.get("id")
+                err_list = status_update.get("errors") or []
+                wh_err_msg = None
+                if err_list and isinstance(err_list[0], dict):
+                    e0 = err_list[0]
+                    code = e0.get("code")
+                    title = e0.get("title") or e0.get("message") or ""
+                    details = (e0.get("error_data") or {}).get("details") or ""
+                    wh_err_msg = f"(#{code}) {title} {details}".strip() if code else f"{title} {details}".strip()
+
                 if recipient_phone in messages_db:
                     for m in reversed(messages_db[recipient_phone].get("messages", [])):
                         if m.get("id") == msg_id:
                             m["status"] = status_val
+                            if wh_err_msg:
+                                m["error"] = wh_err_msg
                             break
 
                 # Also update broadcast recipient messages tracker
@@ -1876,6 +1891,8 @@ async def receive_webhook(request: Request):
                         if bm.get("wamid") == msg_id or bm.get("id") == msg_id:
                             if bm.get("status") != "replied":
                                 bm["status"] = status_val
+                            if wh_err_msg:
+                                bm["error"] = wh_err_msg
                             broadcasts_changed = True
 
         if broadcasts_changed:
