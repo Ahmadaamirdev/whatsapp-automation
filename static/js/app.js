@@ -1384,42 +1384,49 @@ async function uploadMediaToMeta(file) {
     return { success: false, error: 'File exceeds Meta WhatsApp 100 MB maximum limit.' };
   }
 
-  // Small files <= 4 MB go through /api/upload
-  if (file.size <= MAX_VERCEL_BYTES) {
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch('/api/upload', { method: 'POST', body: formData });
-    if (!res.ok) {
-      return { success: false, error: `Upload failed (HTTP ${res.status})` };
+  // 1-hop direct upload to Meta Graph API (cached config), with /api/upload fallback for <= 4MB
+  try {
+    if (!window._cachedMetaUploadCfg) {
+      const cfgRes = await fetch('/api/upload/meta-config');
+      if (cfgRes.ok) window._cachedMetaUploadCfg = await cfgRes.json();
     }
-    return await res.json();
+    const cfg = window._cachedMetaUploadCfg;
+    if (cfg && cfg.phone_number_id && cfg.access_token) {
+      const mime = (file.name.toLowerCase().endsWith('.svg') || (file.type || '').includes('svg'))
+        ? 'text/plain'
+        : (file.type || 'application/octet-stream');
+      const metaForm = new FormData();
+      metaForm.append('file', file);
+      metaForm.append('type', mime);
+      metaForm.append('messaging_product', 'whatsapp');
+
+      const metaRes = await fetch(`https://graph.facebook.com/v22.0/${cfg.phone_number_id}/media`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${cfg.access_token}` },
+        body: metaForm
+      });
+      const metaData = await metaRes.json();
+      if (metaRes.ok && metaData.id) {
+        return { success: true, media_id: metaData.id, url: '', filename: file.name, content_type: mime };
+      }
+      if (file.size > MAX_VERCEL_BYTES) {
+        return { success: false, error: (metaData.error && metaData.error.message) || 'Meta direct upload failed' };
+      }
+    }
+  } catch (e) {
+    if (file.size > MAX_VERCEL_BYTES) {
+      return { success: false, error: 'Direct Meta upload failed: ' + e.message };
+    }
   }
 
-  // Large files (> 4 MB, up to 16 MB video / 100 MB PDF) upload directly to Meta Graph API via CORS
-  const cfgRes = await fetch('/api/upload/meta-config');
-  if (!cfgRes.ok) {
-    return { success: false, error: 'Could not initialize direct Meta upload.' };
+  // Fallback for <= 4MB if direct Meta upload failed
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch('/api/upload', { method: 'POST', body: formData });
+  if (!res.ok) {
+    return { success: false, error: `Upload failed (HTTP ${res.status})` };
   }
-  const cfg = await cfgRes.json();
-  const mime = (file.name.toLowerCase().endsWith('.svg') || (file.type || '').includes('svg'))
-    ? 'text/plain'
-    : (file.type || 'application/octet-stream');
-
-  const metaForm = new FormData();
-  metaForm.append('file', file);
-  metaForm.append('type', mime);
-  metaForm.append('messaging_product', 'whatsapp');
-
-  const metaRes = await fetch(`https://graph.facebook.com/v22.0/${cfg.phone_number_id}/media`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${cfg.access_token}` },
-    body: metaForm
-  });
-  const metaData = await metaRes.json();
-  if (metaRes.ok && metaData.id) {
-    return { success: true, media_id: metaData.id, url: '', filename: file.name, content_type: mime };
-  }
-  return { success: false, error: (metaData.error && metaData.error.message) || 'Meta direct upload failed' };
+  return await res.json();
 }
 
 function renderLivePreview() {
@@ -1989,16 +1996,19 @@ function setupWhatsAppWebMessaging() {
 
   let selectedChatFile = null;
   let selectedChatFileDataUrl = null;
+  let selectedChatObjectUrl = null;
+  let preUploadPromise = null;
 
   if (dropzone && fileInput) {
     dropzone.onclick = () => fileInput.click();
-  }
-
-  if (fileInput) {
     fileInput.onchange = (e) => {
       const file = e.target.files[0];
       if (!file) return;
       selectedChatFile = file;
+      if (selectedChatObjectUrl) URL.revokeObjectURL(selectedChatObjectUrl);
+      selectedChatObjectUrl = URL.createObjectURL(file);
+      // Pre-upload immediately to Meta in background while user types caption
+      preUploadPromise = uploadMediaToMeta(file);
 
       let icon = '📄';
       const isImg = file.type.startsWith('image/') && !file.name.toLowerCase().endsWith('.svg');
@@ -2101,64 +2111,105 @@ function setupWhatsAppWebMessaging() {
         return;
       }
 
-      btnSendMedia.disabled = true;
-      btnSendMedia.textContent = 'Uploading & Sending...';
+      const targetPhone = activePhone;
+      const fileToSend = selectedChatFile;
+      const objPreviewUrl = selectedChatObjectUrl;
+      const uploadTask = preUploadPromise;
+
+      if (fileToSend) {
+        const lowerName = fileToSend.name.toLowerCase();
+        if (fileToSend.type.startsWith('video/') || lowerName.match(/\.(mp4|3gp|mov|avi)$/)) {
+          detectedType = 'video';
+        } else if (lowerName.endsWith('.svg') || fileToSend.type.includes('svg') || fileToSend.type === 'application/pdf' || lowerName.endsWith('.pdf')) {
+          detectedType = 'document';
+        } else if (fileToSend.type.startsWith('image/') || lowerName.match(/\.(jpg|jpeg|png|webp|gif)$/)) {
+          detectedType = 'image';
+        } else {
+          detectedType = 'document';
+        }
+      } else if (url) {
+        if (url.match(/\.(mp4|mov|avi)($|\?)/i)) detectedType = 'video';
+        else if (url.match(/\.(pdf|docx|xlsx)($|\?)/i)) detectedType = 'document';
+        else detectedType = 'image';
+      }
+
+      // Close modal & append optimistic media bubble immediately
+      mediaModal.style.display = 'none';
+      if (mediaCaptionInput) mediaCaptionInput.value = '';
+      if (mediaUrlInput) mediaUrlInput.value = '';
+      selectedChatFile = null;
+      selectedChatFileDataUrl = null;
+      preUploadPromise = null;
+      if (fileInput) fileInput.value = '';
+      if (filePreview) filePreview.style.display = 'none';
+      if (dropzone) dropzone.style.display = 'block';
+
+      const tempId = `pending_media_${Date.now()}`;
+      const nowIso = new Date().toISOString();
+      const optimisticMsg = {
+        id: tempId,
+        direction: 'outgoing',
+        sender: 'Al Haditha Energy',
+        text: caption,
+        media_url: objPreviewUrl || url,
+        media_type: detectedType,
+        time: formatLocalTime('', nowIso),
+        timestamp: nowIso,
+        status: 'pending'
+      };
+      if (!chatHistoryCache[targetPhone]) {
+        chatHistoryCache[targetPhone] = { phone: targetPhone, messages: [] };
+      }
+      chatHistoryCache[targetPhone].messages.push(optimisticMsg);
+      if (activePhone === targetPhone) {
+        renderChatMessagesToArea(chatHistoryCache[targetPhone], true);
+      }
 
       try {
-        if (selectedChatFile) {
-          const lowerName = selectedChatFile.name.toLowerCase();
-          if (selectedChatFile.type.startsWith('video/') || lowerName.match(/\.(mp4|3gp|mov|avi)$/)) {
-            detectedType = 'video';
-          } else if (lowerName.endsWith('.svg') || selectedChatFile.type.includes('svg') || selectedChatFile.type === 'application/pdf' || lowerName.endsWith('.pdf')) {
-            detectedType = 'document';
-          } else if (selectedChatFile.type.startsWith('image/') || lowerName.match(/\.(jpg|jpeg|png|webp|gif)$/)) {
-            detectedType = 'image';
-          } else {
-            detectedType = 'document';
-          }
-
-          const uploadData = await uploadMediaToMeta(selectedChatFile);
+        if (fileToSend) {
+          const uploadData = await (uploadTask || uploadMediaToMeta(fileToSend));
           if (!uploadData.success) {
-            alert('File upload failed: ' + (uploadData.error || 'Server error'));
-            btnSendMedia.disabled = false;
-            btnSendMedia.textContent = 'Send to WhatsApp';
-            return;
+            throw new Error(uploadData.error || 'File upload failed');
           }
-          url = uploadData.url;
+          url = uploadData.url || '';
           mediaId = uploadData.media_id;
-        } else if (url) {
-          if (url.match(/\.(mp4|mov|avi)($|\?)/i)) detectedType = 'video';
-          else if (url.match(/\.(pdf|docx|xlsx)($|\?)/i)) detectedType = 'document';
-          else detectedType = 'image';
         }
 
-        const res = await fetch(`/api/chats/${encodeURIComponent(activePhone)}/send`, {
+        const res = await fetch(`/api/chats/${encodeURIComponent(targetPhone)}/send`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: caption,
             media_url: url,
             media_id: mediaId,
-            preview_url: selectedChatFileDataUrl,
             media_type: detectedType
           })
         });
 
         if (res.ok) {
-          mediaModal.style.display = 'none';
-          loadActiveChat(activePhone, true);
+          const data = await res.json();
+          const savedMsg = data.message || { ...optimisticMsg, status: 'sent' };
+          if (objPreviewUrl) savedMsg.media_url = objPreviewUrl;
+          const msgs = chatHistoryCache[targetPhone].messages;
+          const idx = msgs.findIndex(m => m.id === tempId);
+          if (idx !== -1) msgs[idx] = savedMsg;
+          if (activePhone === targetPhone) {
+            renderChatMessagesToArea(chatHistoryCache[targetPhone], true);
+          }
           loadChats(false);
         } else {
           const errData = await res.json();
-          alert('Error sending media: ' + (errData.detail || 'Meta API error'));
+          throw new Error(errData.detail || 'Meta API error');
         }
       } catch (e) {
         console.error('Error sending chat media:', e);
-        alert('Error dispatching media: ' + e.message);
-      } finally {
-        btnSendMedia.disabled = false;
-        btnSendMedia.innerHTML = '<i data-lucide="send" style="width: 14px; height: 14px;"></i><span>Send to WhatsApp</span>';
-        initIcons();
+        const msgs = chatHistoryCache[targetPhone].messages;
+        const idx = msgs.findIndex(m => m.id === tempId);
+        if (idx !== -1) msgs[idx].status = 'failed';
+        if (activePhone === targetPhone) {
+          renderChatMessagesToArea(chatHistoryCache[targetPhone], true);
+        }
+        alert('Error sending media: ' + e.message);
       }
     };
   }

@@ -1125,6 +1125,25 @@ def personalize_for_employee(variables: list, emp: dict, body_template: str = ""
 
     return resolved_vars, chat_text
 
+def canonical_phone(phone: str) -> str:
+    digits = re.sub(r"\D", "", str(phone or ""))
+    return f"+{digits}" if digits else str(phone or "").strip()
+
+def find_chat_key(messages_db: dict, raw_phone: str, emp_id: Optional[str] = None) -> str:
+    norm = canonical_phone(raw_phone)
+    digits = re.sub(r"\D", "", norm)
+    if norm in messages_db:
+        return norm
+    if digits:
+        for k in messages_db.keys():
+            if re.sub(r"\D", "", str(k)) == digits:
+                return k
+    if emp_id and emp_id not in ("EMP-NEW", "EMP-1001", "EMP-UNKNOWN", "EMP-0000"):
+        for k, v in messages_db.items():
+            if v.get("employee_id") == emp_id and "E+" not in str(k):
+                return k
+    return norm
+
 @app.post("/api/broadcasts/send")
 @app.post("/broadcasts/send")
 def send_broadcast(req: BroadcastSendRequest):
@@ -1280,7 +1299,7 @@ def send_broadcast(req: BroadcastSendRequest):
         }
         recipient_results.append(msg_obj)
 
-        chat_phone = raw_phone if raw_phone.startswith("+") else f"+{raw_phone}"
+        chat_phone = find_chat_key(messages_db, raw_phone, emp.get("id"))
         if chat_phone not in messages_db:
             messages_db[chat_phone] = {
                 "employee_id": emp.get("id", "EMP-NEW"),
@@ -1288,11 +1307,12 @@ def send_broadcast(req: BroadcastSendRequest):
                 "role": f"Employee • {emp.get('department', 'Staff')}",
                 "unread_count": 0,
                 "last_activity": now_time,
-                "messages": []
+                "messages": [],
+                "phone": chat_phone
             }
 
         chat = messages_db[chat_phone]
-        chat["messages"].append({
+        bc_msg_entry = {
             "id": msg_id,
             "direction": "outgoing",
             "sender": "Al Haditha Energy",
@@ -1300,10 +1320,23 @@ def send_broadcast(req: BroadcastSendRequest):
             "time": now_time,
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "status": msg_status
-        })
+        }
+        chat["messages"].append(bc_msg_entry)
         chat["last_activity"] = now_time
 
-    save_json("messages.json", messages_db)
+        database_bc = get_db()
+        if database_bc is not None:
+            try:
+                doc = dict(chat)
+                doc["_id"] = chat_phone
+                doc["phone"] = chat_phone
+                database_bc["chats"].replace_one({"_id": chat_phone}, doc, upsert=True)
+            except Exception as e_chat:
+                print(f"[MONGODB BROADCAST CHAT UPDATE ERROR]: {e_chat}")
+        cache_delete(f"chat:{chat_phone}")
+
+    if get_db() is None:
+        save_json("messages.json", messages_db)
 
     if req.recipient_type == "all":
         rec_filter = f"All Employees ({recipient_count})"
@@ -1486,11 +1519,16 @@ def get_chats():
         messages_db = load_json("messages.json", {})
     chats_list = []
     
+    dedup_by_digits = {}
     for phone, data in messages_db.items():
+        if "E+" in str(phone) or "e+" in str(phone):
+            continue
         msgs = data.get("messages", [])
         last_msg = msgs[-1]["text"] if msgs else ""
         last_ts = msgs[-1].get("timestamp", "") if msgs else ""
-        chats_list.append({
+        digits = re.sub(r"\D", "", str(phone))
+        canon = f"+{digits}" if digits else phone
+        entry = {
             "phone": phone,
             "employee_id": data.get("employee_id", "EMP-0000"),
             "name": data.get("name", "Unknown"),
@@ -1500,8 +1538,22 @@ def get_chats():
             "last_timestamp": last_ts,
             "last_message": last_msg,
             "message_count": len(msgs)
-        })
+        }
+        existing = dedup_by_digits.get(digits)
+        if not existing:
+            dedup_by_digits[digits] = entry
+        else:
+            existing["unread_count"] += entry["unread_count"]
+            existing["message_count"] += entry["message_count"]
+            # Prefer canonical phone (no spaces) or newer message
+            if (entry["last_timestamp"] or "") > (existing["last_timestamp"] or ""):
+                entry["unread_count"] = existing["unread_count"]
+                entry["message_count"] = existing["message_count"]
+                dedup_by_digits[digits] = entry
+            elif phone == canon and existing["phone"] != canon:
+                existing["phone"] = phone
 
+    chats_list = list(dedup_by_digits.values())
     chats_list.sort(key=lambda c: c.get("last_timestamp") or "", reverse=True)
     cache_set("chats_list", chats_list, ttl=20)
     return {"chats": chats_list}
@@ -1633,7 +1685,7 @@ def send_chat_message(phone: str, req: SendChatMessageRequest):
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "status": initial_status
     }
-    display_media = req.preview_url or req.media_url
+    display_media = req.media_url or (f"/api/media/{req.media_id}" if req.media_id else None) or req.preview_url
     if display_media:
         new_msg["media_url"] = display_media
         new_msg["media_type"] = req.media_type or "image"
