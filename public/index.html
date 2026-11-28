@@ -438,45 +438,6 @@
           </div>
         </div>
 
-        <!-- FULL BROADCAST HISTORY TABLE -->
-        <div class="dashboard-card" style="margin-top: 18px;">
-          <div class="card-header">
-            <div>
-              <h3 style="font-size: 18px; font-weight: 800;">Broadcast Delivery Logs</h3>
-              <p style="font-size: 12px; color: var(--text-muted);">Historical records of all broadcasts dispatched via Meta Cloud API.</p>
-            </div>
-            <div style="display: flex; gap: 10px;">
-              <select id="broadcastFilterStatus" class="form-select" style="width: 150px; font-size: 12px; padding: 6px 10px;">
-                <option value="all">All Statuses</option>
-                <option value="Completed">Completed</option>
-                <option value="Dispatched">Dispatched</option>
-              </select>
-              <input type="text" id="broadcastFilterSearch" class="form-input" placeholder="Filter by template / content..." style="width: 220px; font-size: 12px; padding: 6px 10px;">
-            </div>
-          </div>
-
-          <div class="table-responsive premium-table-wrap">
-            <table class="custom-table premium-table">
-              <thead>
-                <tr>
-                  <th>Broadcast ID</th>
-                  <th>Date & Time</th>
-                  <th>Template</th>
-                  <th>Target Recipients</th>
-                  <th style="text-align: center;">Delivered</th>
-                  <th style="text-align: center;">Read</th>
-                  <th style="text-align: center;">Replies</th>
-                  <th>Status</th>
-                  <th style="text-align: right;">Action</th>
-                </tr>
-              </thead>
-              <tbody id="fullBroadcastsTableBody">
-                <!-- Populated dynamically -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-
         <!-- BROADCAST MESSAGE DELIVERY TRACKER MODULE -->
         <div class="dashboard-card" style="margin-top: 18px;" id="broadcastTrackerCard">
           <div class="card-header" style="flex-wrap: wrap; gap: 12px;">
