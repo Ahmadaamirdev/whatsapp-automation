@@ -1589,6 +1589,21 @@ function renderLivePreview() {
     previewBody.innerHTML = text.replace(/\n/g, '<br>');
   }
 
+  // Update live body character counter (Meta 1024 char limit for template body)
+  const bodyCharCounter = document.getElementById('broadcastBodyCharCounter');
+  if (bodyCharCounter) {
+    let plainBody = bodyComp.text || "";
+    varInputs.forEach(input => {
+      const tag = input.getAttribute('data-tag');
+      let val = input.value || '';
+      if (val === "{Employee Name}" || val === "{name}") val = activeEmpName;
+      plainBody = plainBody.split(tag).join(val);
+    });
+    const len = plainBody.length;
+    bodyCharCounter.textContent = `Body: ${len} / 1024 chars`;
+    bodyCharCounter.style.color = len > 1024 ? '#dc2626' : len > 900 ? '#d97706' : '#64748b';
+  }
+
   // Update hidden preview
   const hiddenPreview = document.getElementById('broadcastContentPreview');
   if (hiddenPreview) {
